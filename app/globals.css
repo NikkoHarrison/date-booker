@@ -92,3 +92,8 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* Add this to your globals.css file to hide the dialog close button */
+.dialog-no-close [data-radix-collection-item] {
+  display: none !important;
+}

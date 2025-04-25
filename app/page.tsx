@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useRef, useEffect } from "react"
 import { Star, Users, PlusCircle, MinusCircle, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -746,11 +748,26 @@ export default function AfterWorkPlanner() {
     setShowUserDialog(true)
   }, [])
 
+  // Custom DialogContent component to remove close button
+  const CustomDialogContent = ({ children, ...props }: React.ComponentProps<typeof DialogContent>) => {
+    return (
+      <DialogContent {...props} className={`sm:max-w-md dialog-no-close ${props.className || ""}`}>
+        <style jsx global>{`
+          /* Force hide the close button */
+          .dialog-no-close button[type="button"] {
+            display: none !important;
+          }
+        `}</style>
+        {children}
+      </DialogContent>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-[#f9f5f3]">
       {/* User selection dialog */}
-      <Dialog open={showUserDialog} onOpenChange={setShowUserDialog}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog open={showUserDialog} onOpenChange={undefined} onEscapeKeyDown={(e) => e.preventDefault()}>
+        <CustomDialogContent>
           <DialogHeader>
             <DialogTitle className="text-center text-2xl">Vem är du?</DialogTitle>
             <DialogDescription className="text-center">
@@ -776,7 +793,7 @@ export default function AfterWorkPlanner() {
               </Button>
             ))}
           </div>
-        </DialogContent>
+        </CustomDialogContent>
       </Dialog>
 
       <div className="container mx-auto py-6 px-4">
@@ -812,7 +829,7 @@ export default function AfterWorkPlanner() {
                     onClick={() => setShowUserDialog(true)}
                     disabled={isLoading}
                   >
-                    Byt användare
+                    Välj användare
                   </Button>
                 </div>
               ) : (
