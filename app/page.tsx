@@ -1,14 +1,12 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { CheckCircle2, MessageCircle, Send, Star, Users, PlusCircle, MinusCircle, XCircle } from "lucide-react"
+import { Star, Users, PlusCircle, MinusCircle, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useMobile } from "@/hooks/use-mobile"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   supabase,
@@ -30,7 +28,7 @@ interface ChatMessage {
 
 export default function AfterWorkPlanner() {
   const isMobile = useMobile()
-  const participants = ["Björn", "Samuel", "Nikko", "Marvin", "Harald"]
+  const participants = ["Björn", "Harald", "Marvin", "Nikko", "Samuel"]
 
   // State for loading status
   const [isLoading, setIsLoading] = useState(true)
@@ -649,6 +647,13 @@ export default function AfterWorkPlanner() {
     return colors[index]
   }
 
+  // Sort users with selected user at the top
+  const getSortedParticipants = (users: string[], selectedUser: string | null) => {
+    if (!selectedUser) return users
+
+    return [selectedUser, ...users.filter((user) => user !== selectedUser)]
+  }
+
   // Handle user selection
   const handleUserSelect = async (user: string) => {
     try {
@@ -739,7 +744,7 @@ export default function AfterWorkPlanner() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 gap-4 py-4">
-            {participants.map((participant) => (
+            {getSortedParticipants(participants, selectedUser).map((participant) => (
               <Button
                 key={participant}
                 variant="outline"
@@ -860,7 +865,7 @@ export default function AfterWorkPlanner() {
 
                     {/* Mobile view - show all users */}
                     <div className="md:hidden mb-6">
-                      {participants.map((participant) => {
+                      {getSortedParticipants(participants, selectedUser).map((participant) => {
                         const isCurrentUser = participant === selectedUser
                         const cantAttend = responses[participant]?.cantAttend
 
@@ -962,25 +967,28 @@ export default function AfterWorkPlanner() {
                       })}
                     </div>
 
-                    {/* Desktop view - show all users but only allow editing for selected user */}
+                    {/* Desktop view */}
                     <div className="hidden md:block overflow-x-auto">
-                      <table className="w-full border-collapse">
+                      <table className="w-full table-auto border-collapse">
                         <thead>
                           <tr>
-                            <th className="text-left p-2 font-medium text-gray-500 border-b">Deltagare</th>
-                            <th className="text-center p-2 font-medium text-gray-500 border-b">Åtgärder</th>
+                            <th></th>
                             {weekdays.map((date) => (
-                              <th
-                                key={date.toISOString()}
-                                className="text-center p-2 font-medium text-gray-500 border-b"
-                              >
-                                {date.toLocaleDateString("sv-SE", { weekday: "short", day: "numeric" })}
+                              <th key={date.toISOString()} className="p-2">
+                                <div className="text-center">
+                                  <div className="text-xs font-medium text-gray-500">
+                                    {date.toLocaleDateString("sv-SE", { weekday: "short" })}
+                                  </div>
+                                  <div className="text-sm">
+                                    {date.toLocaleDateString("sv-SE", { day: "numeric", month: "numeric" })}
+                                  </div>
+                                </div>
                               </th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
-                          {participants.map((participant) => {
+                          {getSortedParticipants(participants, selectedUser).map((participant) => {
                             const isCurrentUser = participant === selectedUser
                             const cantAttend = responses[participant]?.cantAttend
 
@@ -989,63 +997,16 @@ export default function AfterWorkPlanner() {
                                 key={participant}
                                 className={`border-b border-gray-100 ${isCurrentUser ? "bg-white" : "bg-gray-50"}`}
                               >
-                                <td className="p-3 font-medium flex items-center gap-2">
-                                  <Avatar className={`h-6 w-6 ${getAvatarColor(participant)}`}>
-                                    <AvatarFallback>{getInitials(participant)}</AvatarFallback>
-                                  </Avatar>
-                                  {participant}
-                                  {isCurrentUser && (
-                                    <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full">Du</span>
-                                  )}
-                                </td>
-                                <td className="p-2 text-center">
-                                  {!cantAttend && (
-                                    <div className="flex justify-center gap-2">
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <Button
-                                              size="sm"
-                                              variant="ghost"
-                                              className="h-8 w-8 p-0"
-                                              onClick={() => setAllAvailability(participant, true)}
-                                              disabled={!isCurrentUser || isLoading}
-                                            >
-                                              <PlusCircle
-                                                className={`h-4 w-4 ${isCurrentUser ? "text-green-500" : "text-gray-300"}`}
-                                              />
-                                              <span className="sr-only">Markera alla</span>
-                                            </Button>
-                                          </TooltipTrigger>
-                                          <TooltipContent>
-                                            {isCurrentUser ? "Markera alla dagar" : "Du kan bara ändra dina egna val"}
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
-
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <Button
-                                              size="sm"
-                                              variant="ghost"
-                                              className="h-8 w-8 p-0"
-                                              onClick={() => setAllAvailability(participant, false)}
-                                              disabled={!isCurrentUser || isLoading}
-                                            >
-                                              <MinusCircle
-                                                className={`h-4 w-4 ${isCurrentUser ? "text-red-500" : "text-gray-300"}`}
-                                              />
-                                              <span className="sr-only">Avmarkera alla</span>
-                                            </Button>
-                                          </TooltipTrigger>
-                                          <TooltipContent>
-                                            {isCurrentUser ? "Avmarkera alla dagar" : "Du kan bara ändra dina egna val"}
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
-                                    </div>
-                                  )}
+                                <td className="p-2 font-medium text-left">
+                                  <div className="flex items-center gap-2">
+                                    <Avatar className={`h-6 w-6 ${getAvatarColor(participant)}`}>
+                                      <AvatarFallback>{getInitials(participant)}</AvatarFallback>
+                                    </Avatar>
+                                    {participant}
+                                    {participant === selectedUser && (
+                                      <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full">Du</span>
+                                    )}
+                                  </div>
                                 </td>
                                 {weekdays.map((date) => {
                                   const dateKey = date.toISOString()
@@ -1053,56 +1014,41 @@ export default function AfterWorkPlanner() {
                                   const isFavored = favoredDays[participant][dateKey]
 
                                   return (
-                                    <td key={`${participant}-${dateKey}`} className="text-center p-2">
+                                    <td key={`${participant}-${dateKey}`} className="p-2 text-center">
                                       {cantAttend ? (
                                         <XCircle className="h-4 w-4 text-red-300 mx-auto" />
                                       ) : (
-                                        <div className="flex flex-col items-center gap-1">
+                                        <div className="flex flex-col items-center">
                                           <Checkbox
                                             checked={isAvailable}
                                             onCheckedChange={() => {
                                               toggleAvailability(participant, dateKey)
-                                              // If making unavailable, also remove favored status
                                               if (isAvailable && isFavored) {
                                                 toggleFavored(participant, dateKey)
                                               }
                                             }}
-                                            disabled={!isCurrentUser || isLoading}
                                             className={`
-                                              data-[state=checked]:bg-red-500 
-                                              data-[state=checked]:border-red-500
-                                              ${!isCurrentUser ? "opacity-60" : ""}
-                                            `}
+                      data-[state=checked]:bg-red-500 
+                      data-[state=checked]:border-red-500
+                      ${!isCurrentUser ? "opacity-60" : ""}
+                    `}
+                                            disabled={participant !== selectedUser || isLoading}
                                           />
-                                          <TooltipProvider>
-                                            <Tooltip>
-                                              <TooltipTrigger asChild>
-                                                <button
-                                                  onClick={() => toggleFavored(participant, dateKey)}
-                                                  disabled={!isAvailable || !isCurrentUser || isLoading}
-                                                  className={`
-                                                    flex items-center justify-center h-6 w-6 rounded-full
-                                                    ${!isAvailable || !isCurrentUser ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}
-                                                  `}
-                                                >
-                                                  <Star
-                                                    className={`h-4 w-4 ${
-                                                      isFavored && isAvailable
-                                                        ? "fill-red-500 text-red-500"
-                                                        : "text-gray-400"
-                                                    }`}
-                                                  />
-                                                </button>
-                                              </TooltipTrigger>
-                                              <TooltipContent>
-                                                {isCurrentUser
-                                                  ? isFavored
-                                                    ? "Ta bort som favoritdag"
-                                                    : "Markera som favoritdag"
-                                                  : "Du kan bara ändra dina egna val"}
-                                              </TooltipContent>
-                                            </Tooltip>
-                                          </TooltipProvider>
+                                          <button
+                                            onClick={() => toggleFavored(participant, dateKey)}
+                                            disabled={!isAvailable || participant !== selectedUser || isLoading}
+                                            className={`flex items-center justify-center h-6 w-6 rounded-full ${
+                                              !isAvailable || participant !== selectedUser
+                                                ? "opacity-30 cursor-not-allowed"
+                                                : "cursor-pointer"
+                                            }`}
+                                          >
+                                            <Star
+                                              className={`h-5 w-5 ${
+                                                isFavored && isAvailable ? "fill-red-500 text-red-500" : "text-gray-400"
+                                              }`}
+                                            />
+                                          </button>
                                         </div>
                                       )}
                                     </td>
@@ -1114,179 +1060,132 @@ export default function AfterWorkPlanner() {
                         </tbody>
                       </table>
                     </div>
-
-                    {selectedUser && getBestDays().length > 0 && (
-                      <div className="mt-6 md:mt-8 p-4 md:p-5 bg-[#f9f5f3] rounded-lg border border-gray-100">
-                        <div className="flex items-center gap-2 mb-3">
-                          <CheckCircle2 className="h-5 w-5 text-red-500" />
-                          <h3 className="font-medium text-gray-800">Bästa dagarna för after work:</h3>
-                        </div>
-                        <div className="space-y-4">
-                          {getBestDays().map((group, groupIndex) => (
-                            <div key={`group-${groupIndex}`}>
-                              <div className="flex items-center gap-2 mb-2">
-                                {groupIndex === 0 ? (
-                                  <span className="text-sm font-medium bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
-                                    Bästa alternativ
-                                  </span>
-                                ) : groupIndex === 1 ? (
-                                  <span className="text-sm font-medium bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
-                                    Näst bästa alternativ
-                                  </span>
-                                ) : (
-                                  <span className="text-sm font-medium bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full">
-                                    Tredje bästa alternativ
-                                  </span>
-                                )}
-                              </div>
-                              <div className="space-y-2">
-                                {group.days.map(({ date, availableCount, favoredCount, respondedCount }) => (
-                                  <div
-                                    key={date.toISOString()}
-                                    className="flex flex-col md:flex-row md:items-center md:justify-between bg-white p-3 rounded-md shadow-sm"
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-medium">
-                                        {date.toLocaleDateString("sv-SE", {
-                                          weekday: isMobile ? "short" : "long",
-                                          day: "numeric",
-                                          month: isMobile ? "numeric" : "long",
-                                        })}
-                                      </span>
-                                      <div className="flex items-center gap-1 bg-red-50 text-red-500 px-2 py-0.5 rounded-full text-xs">
-                                        <Star className="h-3 w-3 fill-red-500 text-red-500" />
-                                        <span>{favoredCount}</span>
-                                      </div>
-                                    </div>
-                                    <div className="flex items-center gap-1 mt-1 md:mt-0">
-                                      <Users className="h-4 w-4 text-gray-400" />
-                                      <span className="text-sm text-gray-600">
-                                        {availableCount} av {participants.length} tillgängliga ({respondedCount} har
-                                        svarat)
-                                      </span>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* Can't attend summary */}
-                        {getCantAttendParticipants().length > 0 && (
-                          <div className="mt-4 p-3 bg-gray-50 rounded-md border border-gray-200">
-                            <div className="flex items-center gap-2">
-                              <XCircle className="h-4 w-4 text-red-500" />
-                              <span className="text-sm text-gray-700">
-                                {getCantAttendParticipants().join(", ")} kan inte delta någon av dessa dagar
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </>
                 ) : (
-                  <div className="text-center py-10">
-                    <p className="text-gray-500">Välj en deltagare för att markera dina tillgängliga dagar</p>
-                    <Button
-                      onClick={() => setShowUserDialog(true)}
-                      className="mt-4 bg-red-500 hover:bg-red-600 text-white border-none"
-                      disabled={isLoading}
-                    >
-                      Välj deltagare
-                    </Button>
-                  </div>
+                  <p className="text-gray-500">Välj en användare för att visa tillgänglighet.</p>
                 )}
               </TabsContent>
 
               {/* Chat Tab */}
-              <TabsContent value="chat" className="p-0">
-                <div className="flex flex-col h-[500px]">
-                  {selectedUser ? (
-                    <>
-                      {/* Chat messages */}
-                      <div className="flex-1 overflow-y-auto p-4">
-                        <div className="space-y-4">
-                          {messages.map((message) => (
-                            <div
-                              key={message.id}
-                              className={`flex ${message.sender === selectedUser ? "justify-end" : "justify-start"}`}
-                            >
-                              <div
-                                className={`max-w-[80%] ${
-                                  message.sender === selectedUser
-                                    ? "bg-red-500 text-white rounded-tl-lg rounded-tr-lg rounded-bl-lg"
-                                    : "bg-gray-100 text-gray-800 rounded-tl-lg rounded-tr-lg rounded-br-lg"
-                                } px-4 py-2`}
-                              >
-                                <div className="flex items-center gap-2 mb-1">
-                                  {message.sender !== selectedUser && (
-                                    <Avatar className={`h-5 w-5 ${getAvatarColor(message.sender)}`}>
-                                      <AvatarFallback>{getInitials(message.sender)}</AvatarFallback>
-                                    </Avatar>
-                                  )}
-                                  <span
-                                    className={`text-xs ${
-                                      message.sender === selectedUser ? "text-gray-100" : "text-gray-500"
-                                    }`}
-                                  >
-                                    {message.sender === selectedUser ? "Du" : message.sender},{" "}
-                                    {formatMessageTime(message.timestamp)}
-                                  </span>
-                                </div>
-                                <p className="text-sm">{message.text}</p>
-                              </div>
-                            </div>
-                          ))}
-                          <div ref={messagesEndRef} />
-                        </div>
-                      </div>
-
-                      {/* Message input */}
-                      <div className="border-t p-4">
-                        <div className="flex gap-2">
-                          <Input
-                            value={newMessage}
-                            onChange={(e) => setNewMessage(e.target.value)}
-                            placeholder="Skriv ett meddelande..."
-                            className="flex-1"
-                            disabled={isLoading}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" && !e.shiftKey) {
-                                e.preventDefault()
-                                handleSendMessage()
-                              }
-                            }}
-                          />
-                          <Button
-                            onClick={handleSendMessage}
-                            className="bg-red-500 hover:bg-red-600 text-white"
-                            disabled={isLoading}
-                          >
-                            <Send className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex-1 flex items-center justify-center">
-                      <div className="text-center p-6">
-                        <MessageCircle className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                        <p className="text-gray-500 mb-4">Logga in för att delta i diskussionen</p>
-                        <Button
-                          onClick={() => setShowUserDialog(true)}
-                          className="bg-red-500 hover:bg-red-600 text-white border-none"
-                          disabled={isLoading}
+              <TabsContent value="chat" className="p-4 md:p-6">
+                {selectedUser ? (
+                  <div className="flex flex-col h-[500px]">
+                    {/* Chat messages */}
+                    <div className="flex-1 overflow-y-auto mb-4">
+                      {messages.map((message) => (
+                        <div
+                          key={message.id}
+                          className={`mb-2 p-2 rounded-lg ${
+                            message.sender === selectedUser ? "bg-red-100 ml-auto" : "bg-gray-100 mr-auto"
+                          } w-fit max-w-[80%]`}
                         >
-                          Välj deltagare
-                        </Button>
-                      </div>
+                          <div className="text-xs text-gray-500">{message.sender}</div>
+                          <div>{message.text}</div>
+                          <div className="text-xs text-gray-500 text-right">{formatMessageTime(message.timestamp)}</div>
+                        </div>
+                      ))}
+                      <div ref={messagesEndRef} />
                     </div>
-                  )}
-                </div>
+
+                    {/* Message input */}
+                    <div className="flex items-center">
+                      <input
+                        type="text"
+                        className="flex-1 border rounded-lg py-2 px-3 mr-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                        placeholder="Skriv ett meddelande..."
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            handleSendMessage()
+                          }
+                        }}
+                      />
+                      <Button onClick={handleSendMessage} disabled={isLoading}>
+                        Skicka
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-gray-500">Välj en användare för att starta chatten.</p>
+                )}
               </TabsContent>
             </Tabs>
+          </div>
+        )}
+
+        {/* Best days calculation */}
+        <div className="mt-8">
+          <h2 className="text-xl font-semibold mb-4">Förslag på bästa dagar</h2>
+          {getCantAttendParticipants().length > 0 && (
+            <Alert className="mb-4 bg-yellow-50 border-yellow-200">
+              <AlertDescription className="flex items-center gap-2">
+                <XCircle className="h-4 w-4 text-yellow-500" />
+                <span>{getCantAttendParticipants().join(", ")} kan inte delta någon av dessa dagar.</span>
+              </AlertDescription>
+            </Alert>
+          )}
+          {getBestDays().length > 0 ? (
+            <div className="space-y-4">
+              {getBestDays().map((group, groupIndex) => (
+                <div key={`group-${groupIndex}`} className="p-4 md:p-5 bg-white rounded-lg border border-gray-100">
+                  <div className="flex items-center gap-2 mb-2">
+                    {groupIndex === 0 ? (
+                      <span className="text-sm font-medium bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+                        Bästa alternativ
+                      </span>
+                    ) : groupIndex === 1 ? (
+                      <span className="text-sm font-medium bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                        Näst bästa alternativ
+                      </span>
+                    ) : (
+                      <span className="text-sm font-medium bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full">
+                        Tredje bästa alternativ
+                      </span>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    {group.days.map(({ date, availableCount, favoredCount, respondedCount }) => (
+                      <div
+                        key={date.toISOString()}
+                        className="flex flex-col md:flex-row md:items-center md:justify-between bg-white p-3 rounded-md shadow-sm border border-gray-100"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">
+                            {date.toLocaleDateString("sv-SE", {
+                              weekday: isMobile ? "short" : "long",
+                              day: "numeric",
+                              month: isMobile ? "numeric" : "long",
+                            })}
+                          </span>
+                          <div className="flex items-center gap-1 bg-red-50 text-red-500 px-2 py-0.5 rounded-full text-xs">
+                            <Star className="h-3 w-3 fill-red-500 text-red-500" />
+                            <span>{favoredCount}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 mt-1 md:mt-0">
+                          <Users className="h-4 w-4 text-gray-400" />
+                          <span className="text-sm text-gray-600">
+                            {availableCount} av {participants.length} tillgängliga ({respondedCount} har svarat)
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p>Inga förslag på bästa dagar kunde hittas.</p>
+          )}
+        </div>
+
+        {/* Logout button */}
+        {selectedUser && (
+          <div className="mt-8">
+            <Button variant="destructive" onClick={handleLogout} disabled={isLoading}>
+              Logga ut
+            </Button>
           </div>
         )}
       </div>
