@@ -1,13 +1,10 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useRef, useEffect } from "react"
 import { Star, Users, PlusCircle, MinusCircle, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useMobile } from "@/hooks/use-mobile"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
@@ -28,6 +25,75 @@ interface ChatMessage {
   timestamp: Date
 }
 
+// Create a client-only component for the dialog
+function UserSelectionDialog({
+  isOpen,
+  participants,
+  selectedUser,
+  isLoading,
+  onUserSelect,
+  getAvatarColor,
+  getInitials,
+  getSortedParticipants,
+}: {
+  isOpen: boolean
+  participants: string[]
+  selectedUser: string | null
+  isLoading: boolean
+  onUserSelect: (user: string) => void
+  getAvatarColor: (name: string) => string
+  getInitials: (name: string) => string
+  getSortedParticipants: (users: string[], selectedUser: string | null) => string[]
+}) {
+  // Use state to track if component is mounted
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  // Don't render anything during SSR or before hydration
+  if (!isMounted) return null
+
+  return (
+    <div
+      className={`fixed inset-0 bg-black/50 z-50 flex items-center justify-center transition-opacity duration-200 ${
+        isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+      }`}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div
+        className="bg-white rounded-lg shadow-lg w-full max-w-md mx-4 overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-6">
+          <h2 className="text-center text-2xl font-semibold mb-2">Vem är du?</h2>
+          <p className="text-center text-gray-500 mb-6">Välj ditt namn för att markera dina tillgängliga dagar</p>
+          <div className="grid grid-cols-1 gap-4 py-4">
+            {getSortedParticipants(participants, selectedUser).map((participant) => (
+              <Button
+                key={participant}
+                variant="outline"
+                className="flex items-center justify-start gap-3 h-14 px-4"
+                onClick={() => onUserSelect(participant)}
+                disabled={isLoading}
+              >
+                <Avatar className={`h-8 w-8 ${getAvatarColor(participant)}`}>
+                  <AvatarFallback>{getInitials(participant)}</AvatarFallback>
+                </Avatar>
+                <span className="text-lg">{participant}</span>
+                {participant === selectedUser && (
+                  <span className="ml-auto text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">Nuvarande</span>
+                )}
+              </Button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function AfterWorkPlanner() {
   const isMobile = useMobile()
   const participants = ["Björn", "Harald", "Marvin", "Nikko", "Samuel"]
@@ -37,7 +103,10 @@ export default function AfterWorkPlanner() {
 
   // State for user selection
   const [selectedUser, setSelectedUser] = useState<string | null>(null)
-  const [showUserDialog, setShowUserDialog] = useState(true)
+  const [showUserDialog, setShowUserDialog] = useState(false)
+
+  // State to track if component is hydrated
+  const [isHydrated, setIsHydrated] = useState(false)
 
   // State for chat
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -194,6 +263,8 @@ export default function AfterWorkPlanner() {
         })
       } finally {
         setIsLoading(false)
+        // After data is loaded, show the dialog
+        setShowUserDialog(true)
       }
     }
 
@@ -228,6 +299,11 @@ export default function AfterWorkPlanner() {
     return () => {
       supabase.removeChannel(messagesSubscription)
     }
+  }, [])
+
+  // Mark component as hydrated after mount
+  useEffect(() => {
+    setIsHydrated(true)
   }, [])
 
   // Toggle availability for a participant on a specific day
@@ -743,58 +819,21 @@ export default function AfterWorkPlanner() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
-  // Ensure user dialog is shown on first load
-  useEffect(() => {
-    setShowUserDialog(true)
-  }, [])
-
-  // Custom DialogContent component to remove close button
-  const CustomDialogContent = ({ children, ...props }: React.ComponentProps<typeof DialogContent>) => {
-    return (
-      <DialogContent {...props} className={`sm:max-w-md dialog-no-close ${props.className || ""}`}>
-        <style jsx global>{`
-          /* Force hide the close button */
-          .dialog-no-close button[type="button"] {
-            display: none !important;
-          }
-        `}</style>
-        {children}
-      </DialogContent>
-    )
-  }
-
   return (
     <div className="min-h-screen bg-[#f9f5f3]">
-      {/* User selection dialog */}
-      <Dialog open={showUserDialog} onOpenChange={undefined} onEscapeKeyDown={(e) => e.preventDefault()}>
-        <CustomDialogContent>
-          <DialogHeader>
-            <DialogTitle className="text-center text-2xl">Vem är du?</DialogTitle>
-            <DialogDescription className="text-center">
-              Välj ditt namn för att markera dina tillgängliga dagar
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-1 gap-4 py-4">
-            {getSortedParticipants(participants, selectedUser).map((participant) => (
-              <Button
-                key={participant}
-                variant="outline"
-                className="flex items-center justify-start gap-3 h-14 px-4"
-                onClick={() => handleUserSelect(participant)}
-                disabled={isLoading}
-              >
-                <Avatar className={`h-8 w-8 ${getAvatarColor(participant)}`}>
-                  <AvatarFallback>{getInitials(participant)}</AvatarFallback>
-                </Avatar>
-                <span className="text-lg">{participant}</span>
-                {participant === selectedUser && (
-                  <span className="ml-auto text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">Nuvarande</span>
-                )}
-              </Button>
-            ))}
-          </div>
-        </CustomDialogContent>
-      </Dialog>
+      {/* Only render the custom dialog when hydrated */}
+      {isHydrated && (
+        <UserSelectionDialog
+          isOpen={showUserDialog}
+          participants={participants}
+          selectedUser={selectedUser}
+          isLoading={isLoading}
+          onUserSelect={handleUserSelect}
+          getAvatarColor={getAvatarColor}
+          getInitials={getInitials}
+          getSortedParticipants={getSortedParticipants}
+        />
+      )}
 
       <div className="container mx-auto py-6 px-4">
         {/* Header */}
