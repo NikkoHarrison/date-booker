@@ -1188,15 +1188,15 @@ export default function AfterWorkPlanner() {
                   <div className="flex items-center gap-2 mb-2">
                     {groupIndex === 0 ? (
                       <span className="text-sm font-medium bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
-                        Bästa alternativ
+                        Bästa alternativet
                       </span>
                     ) : groupIndex === 1 ? (
                       <span className="text-sm font-medium bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
-                        Näst bästa alternativ
+                        Näst bästa alternativet
                       </span>
                     ) : (
                       <span className="text-sm font-medium bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full">
-                        Tredje bästa alternativ
+                        Tredje bästa alternativet
                       </span>
                     )}
                   </div>
