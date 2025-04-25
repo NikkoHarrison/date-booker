@@ -264,8 +264,29 @@ export default function AfterWorkPlanner() {
         toggleFavored(participant, dateKey)
       }
 
-      // Mark user as responded
-      await updateUserResponse(participant, true, responses[participant]?.cantAttend || false)
+      // Check if this was the last available date being cleared
+      let hasAnyAvailableDates = false
+      if (!newValue) {
+        // Check if there are any remaining available dates for this user
+        for (const date of weekdays) {
+          const key = date.toISOString()
+          // Skip the current date we just updated
+          if (key === dateKey) continue
+
+          if (availability[participant][key]) {
+            hasAnyAvailableDates = true
+            break
+          }
+        }
+      }
+
+      // Mark user as responded only if they have at least one available date
+      // or if they're marking a date as available
+      await updateUserResponse(
+        participant,
+        newValue || hasAnyAvailableDates,
+        responses[participant]?.cantAttend || false,
+      )
     } catch (error) {
       console.error("Error updating availability:", error)
       // Revert local state if the update failed
@@ -439,8 +460,9 @@ export default function AfterWorkPlanner() {
         if (error) throw error
       }
 
-      // Mark user as responded
-      await updateUserResponse(participant, true, false)
+      // Mark user as responded or not responded based on the action
+      // If clearing all entries (value is false), mark as not responded
+      await updateUserResponse(participant, value, false)
 
       toast({
         title: "Success",
@@ -972,9 +994,13 @@ export default function AfterWorkPlanner() {
                       <table className="w-full table-auto border-collapse">
                         <thead>
                           <tr>
-                            <th></th>
+                            <th className="text-left p-2 font-medium text-gray-500 border-b">Deltagare</th>
+                            <th className="text-center p-2 font-medium text-gray-500 border-b">Åtgärder</th>
                             {weekdays.map((date) => (
-                              <th key={date.toISOString()} className="p-2">
+                              <th
+                                key={date.toISOString()}
+                                className="text-center p-2 font-medium text-gray-500 border-b"
+                              >
                                 <div className="text-center">
                                   <div className="text-xs font-medium text-gray-500">
                                     {date.toLocaleDateString("sv-SE", { weekday: "short" })}
@@ -1007,6 +1033,36 @@ export default function AfterWorkPlanner() {
                                       <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full">Du</span>
                                     )}
                                   </div>
+                                </td>
+                                <td className="p-2 text-center">
+                                  {!cantAttend && (
+                                    <div className="flex justify-center gap-2">
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-8 w-8 p-0"
+                                        onClick={() => setAllAvailability(participant, true)}
+                                        disabled={!isCurrentUser || isLoading}
+                                      >
+                                        <PlusCircle
+                                          className={`h-4 w-4 ${isCurrentUser ? "text-green-500" : "text-gray-300"}`}
+                                        />
+                                        <span className="sr-only">Markera alla</span>
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-8 w-8 p-0"
+                                        onClick={() => setAllAvailability(participant, false)}
+                                        disabled={!isCurrentUser || isLoading}
+                                      >
+                                        <MinusCircle
+                                          className={`h-4 w-4 ${isCurrentUser ? "text-red-500" : "text-gray-300"}`}
+                                        />
+                                        <span className="sr-only">Avmarkera alla</span>
+                                      </Button>
+                                    </div>
+                                  )}
                                 </td>
                                 {weekdays.map((date) => {
                                   const dateKey = date.toISOString()
