@@ -692,14 +692,6 @@ export default function AfterWorkPlanner() {
     }
   }
 
-  // Handle user logout
-  const handleLogout = async () => {
-    if (selectedUser) {
-      setSelectedUser(null)
-      setShowUserDialog(true)
-    }
-  }
-
   // Handle sending a new message
   const handleSendMessage = async () => {
     if (newMessage.trim() === "" || !selectedUser) return
@@ -1235,15 +1227,6 @@ export default function AfterWorkPlanner() {
             <p>Inga förslag på bästa dagar kunde hittas.</p>
           )}
         </div>
-
-        {/* Logout button */}
-        {selectedUser && (
-          <div className="mt-8">
-            <Button variant="destructive" onClick={handleLogout} disabled={isLoading}>
-              Logga ut
-            </Button>
-          </div>
-        )}
       </div>
     </div>
   )
