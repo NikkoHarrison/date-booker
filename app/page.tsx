@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   supabase,
+  type User,
   type AvailabilityRecord,
   type FavoriteRecord,
   type MessageRecord,
@@ -16,20 +17,28 @@ import {
 } from "@/lib/supabase"
 import { toast } from "@/hooks/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { checkDatabaseSchema } from "@/lib/debug-schema"
 
 // Define message type
 interface ChatMessage {
   id: string
   sender: string
+  senderId: number
   text: string
   timestamp: Date
+}
+
+// Define participant type with ID
+interface Participant {
+  id: number
+  name: string
 }
 
 // Create a client-only component for the dialog
 function UserSelectionDialog({
   isOpen,
   participants,
-  selectedUser,
+  selectedUserId,
   isLoading,
   onUserSelect,
   getAvatarColor,
@@ -37,13 +46,13 @@ function UserSelectionDialog({
   getSortedParticipants,
 }: {
   isOpen: boolean
-  participants: string[]
-  selectedUser: string | null
+  participants: Participant[]
+  selectedUserId: number | null
   isLoading: boolean
-  onUserSelect: (user: string) => void
+  onUserSelect: (userId: number) => void
   getAvatarColor: (name: string) => string
   getInitials: (name: string) => string
-  getSortedParticipants: (users: string[], selectedUser: string | null) => string[]
+  getSortedParticipants: (users: Participant[], selectedUserId: number | null) => Participant[]
 }) {
   // Use state to track if component is mounted
   const [isMounted, setIsMounted] = useState(false)
@@ -70,19 +79,19 @@ function UserSelectionDialog({
           <h2 className="text-center text-2xl font-semibold mb-2">Vem är du?</h2>
           <p className="text-center text-gray-500 mb-6">Välj ditt namn för att markera dina tillgängliga dagar</p>
           <div className="grid grid-cols-1 gap-4 py-4">
-            {getSortedParticipants(participants, selectedUser).map((participant) => (
+            {getSortedParticipants(participants, selectedUserId).map((participant) => (
               <Button
-                key={participant}
+                key={participant.id}
                 variant="outline"
                 className="flex items-center justify-start gap-3 h-14 px-4"
-                onClick={() => onUserSelect(participant)}
+                onClick={() => onUserSelect(participant.id)}
                 disabled={isLoading}
               >
-                <Avatar className={`h-8 w-8 ${getAvatarColor(participant)}`}>
-                  <AvatarFallback>{getInitials(participant)}</AvatarFallback>
+                <Avatar className={`h-8 w-8 ${getAvatarColor(participant.name)}`}>
+                  <AvatarFallback>{getInitials(participant.name)}</AvatarFallback>
                 </Avatar>
-                <span className="text-lg">{participant}</span>
-                {participant === selectedUser && (
+                <span className="text-lg">{participant.name}</span>
+                {participant.id === selectedUserId && (
                   <span className="ml-auto text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">Nuvarande</span>
                 )}
               </Button>
@@ -95,37 +104,8 @@ function UserSelectionDialog({
 }
 
 export default function AfterWorkPlanner() {
-  const isMobile = useMobile()
-  const participants = ["Björn", "Harald", "Marvin", "Nikko", "Samuel"]
-
-  // State for loading status
-  const [isLoading, setIsLoading] = useState(true)
-
-  // State for user selection
-  const [selectedUser, setSelectedUser] = useState<string | null>(null)
-  const [showUserDialog, setShowUserDialog] = useState(false)
-
-  // State to track if component is hydrated
-  const [isHydrated, setIsHydrated] = useState(false)
-
-  // State for chat
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [newMessage, setNewMessage] = useState("")
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-
-  // State for responses
-  const [responses, setResponses] = useState<Record<string, { hasResponded: boolean; cantAttend: boolean }>>(
-    participants.reduce(
-      (acc, participant) => {
-        acc[participant] = { hasResponded: false, cantAttend: false }
-        return acc
-      },
-      {} as Record<string, { hasResponded: boolean; cantAttend: boolean }>,
-    ),
-  )
-
-  // Generate all weekdays in May 2025
-  const generateMayWeekdays = () => {
+  // Generate all weekdays in May 2025 - moved outside of component body to prevent re-creation on each render
+  const weekdays = (() => {
     const dates = []
     const year = 2025
     const month = 4 // May is 4 in JavaScript (0-indexed)
@@ -145,117 +125,315 @@ export default function AfterWorkPlanner() {
     }
 
     return dates
-  }
+  })()
 
-  const weekdays = generateMayWeekdays()
+  // Debug weekdays
+  useEffect(() => {
+    console.log(
+      "Weekdays array:",
+      weekdays.map((d) => d.toISOString()),
+    )
+  }, [])
+
+  // State for version and participants
+  const [version, setVersion] = useState<string>("default")
+  const [participants, setParticipants] = useState<Participant[]>([])
+  const [userSets, setUserSets] = useState<Record<string, Participant[]>>({
+    default: [],
+    v2: [],
+  })
+
+  // State for loading status
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadingError, setLoadingError] = useState<string | null>(null)
+
+  // State for user selection
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
+  const [selectedUserName, setSelectedUserName] = useState<string | null>(null)
+  const [showUserDialog, setShowUserDialog] = useState(false)
+
+  // State to track if component is hydrated
+  const [isHydrated, setIsHydrated] = useState(false)
+
+  // State for chat
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [newMessage, setNewMessage] = useState("")
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // State for responses
+  const [responses, setResponses] = useState<Record<number, { hasResponded: boolean; cantAttend: boolean }>>({})
 
   // Initialize availability state with all false values
-  const [availability, setAvailability] = useState<Record<string, Record<string, boolean>>>(
-    participants.reduce(
-      (acc, participant) => {
-        acc[participant] = weekdays.reduce(
-          (days, date) => {
-            days[date.toISOString()] = false
-            return days
-          },
-          {} as Record<string, boolean>,
-        )
-        return acc
-      },
-      {} as Record<string, Record<string, boolean>>,
-    ),
-  )
+  const [availability, setAvailability] = useState<Record<number, Record<string, boolean>>>({})
 
   // Initialize favored days state with all false values
-  const [favoredDays, setFavoredDays] = useState<Record<string, Record<string, boolean>>>(
-    participants.reduce(
-      (acc, participant) => {
-        acc[participant] = weekdays.reduce(
-          (days, date) => {
-            days[date.toISOString()] = false
-            return days
-          },
-          {} as Record<string, boolean>,
-        )
-        return acc
-      },
-      {} as Record<string, Record<string, boolean>>,
-    ),
-  )
+  const [favoredDays, setFavoredDays] = useState<Record<number, Record<string, boolean>>>({})
+
+  // Add this useEffect to detect URL parameters after the component mounts
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search)
+      const versionParam = urlParams.get("version")
+      if (versionParam) {
+        setVersion(versionParam)
+      }
+    }
+  }, []) // Empty dependency array means this runs once on mount
+
+  // Initialize state objects when participants change
+  useEffect(() => {
+    // Skip initialization if we're still loading data from the server
+    if (isLoading) return
+
+    const newAvailability: Record<number, Record<string, boolean>> = {}
+    const newFavoredDays: Record<number, Record<string, boolean>> = {}
+    const newResponses: Record<number, { hasResponded: boolean; cantAttend: boolean }> = {}
+
+    // Initialize state for each participant
+    participants.forEach((participant) => {
+      newAvailability[participant.id] = {}
+      newFavoredDays[participant.id] = {}
+      newResponses[participant.id] = { hasResponded: false, cantAttend: false }
+
+      weekdays.forEach((date) => {
+        const dateKey = date.toISOString()
+        newAvailability[participant.id][dateKey] = false
+        newFavoredDays[participant.id][dateKey] = false
+      })
+    })
+
+    setAvailability(newAvailability)
+    setFavoredDays(newFavoredDays)
+    setResponses(newResponses)
+  }, [participants, isLoading]) // Only run when participants or isLoading changes
+
+  const isMobile = useMobile()
 
   // Load initial data from Supabase
   useEffect(() => {
+    console.log("Starting data loading process...")
+
+    // Test Supabase connection
+    const testSupabaseConnection = async () => {
+      try {
+        console.log("Testing Supabase connection...")
+        const { data, error } = await supabase.from("users").select("count").limit(1)
+
+        if (error) {
+          console.error("Supabase connection test failed:", error)
+          return false
+        }
+
+        console.log("Supabase connection successful:", data)
+        return true
+      } catch (err) {
+        console.error("Error testing Supabase connection:", err)
+        return false
+      }
+    }
+
     const loadInitialData = async () => {
       setIsLoading(true)
-      try {
-        // Load selected users
-        const { data: usersData, error: usersError } = await supabase.from("users").select("*")
+      setLoadingError(null)
 
-        if (usersError) throw usersError
+      try {
+        // First test the connection
+        const isConnected = await testSupabaseConnection()
+        if (!isConnected) {
+          throw new Error("Could not connect to Supabase")
+        }
+
+        // Check database schema
+        console.log("Checking database schema...")
+        await checkDatabaseSchema()
+
+        // Load users and group them by version
+        console.log("Loading users data...")
+        const { data: usersData, error: usersError } = await supabase.from("users").select("*").order("name")
+
+        if (usersError) {
+          console.error("Error loading users:", usersError)
+          throw usersError
+        }
+
+        // Log the users data for debugging
+        console.log("Users data:", usersData)
+
+        if (!usersData || usersData.length === 0) {
+          console.warn("No users found in the database")
+          toast({
+            title: "Warning",
+            description: "No users found in the database",
+            variant: "destructive",
+          })
+        }
+
+        // Group users by version
+        const groupedUsers: Record<string, Participant[]> = {
+          default: [],
+          v2: [],
+        }
+
+        usersData.forEach((user: User) => {
+          const userVersion = user.version || "default"
+          if (!groupedUsers[userVersion]) {
+            groupedUsers[userVersion] = []
+          }
+          groupedUsers[userVersion].push({
+            id: user.id,
+            name: user.name,
+          })
+        })
+
+        // Log the grouped users for debugging
+        console.log("Grouped users:", groupedUsers)
+
+        // Set user sets and current participants
+        setUserSets(groupedUsers)
+        const currentParticipants = groupedUsers[version] || groupedUsers.default || []
+        setParticipants(currentParticipants)
+
+        // Log the current participants for debugging
+        console.log("Current participants:", currentParticipants)
+
+        if (currentParticipants.length === 0) {
+          console.warn("No participants found for the current version:", version)
+          toast({
+            title: "Warning",
+            description: `No participants found for version: ${version}`,
+            variant: "destructive",
+          })
+        }
+
+        // Initialize state objects for the current participant set
+        const newAvailability: Record<number, Record<string, boolean>> = {}
+        const newFavoredDays: Record<number, Record<string, boolean>> = {}
+        const newResponses: Record<number, { hasResponded: boolean; cantAttend: boolean }> = {}
+
+        // Initialize state for each participant
+        currentParticipants.forEach((participant) => {
+          newAvailability[participant.id] = {}
+          newFavoredDays[participant.id] = {}
+          newResponses[participant.id] = { hasResponded: false, cantAttend: false }
+
+          weekdays.forEach((date) => {
+            const dateKey = date.toISOString()
+            newAvailability[participant.id][dateKey] = false
+            newFavoredDays[participant.id][dateKey] = false
+          })
+        })
 
         // Load availability data
+        console.log("Loading availability data...")
         const { data: availabilityData, error: availabilityError } = await supabase.from("availability").select("*")
 
-        if (availabilityError) throw availabilityError
+        if (availabilityError) {
+          console.error("Error loading availability:", availabilityError)
+          throw availabilityError
+        }
 
         // Update availability state
-        const newAvailability = { ...availability }
         availabilityData.forEach((record: AvailabilityRecord) => {
-          if (newAvailability[record.user_name]) {
-            newAvailability[record.user_name][record.date_key] = record.is_available
+          const participantIds = currentParticipants.map((p) => p.id)
+          if (participantIds.includes(record.user_id) && newAvailability[record.user_id]) {
+            newAvailability[record.user_id][record.date_key] = record.is_available
           }
         })
-        setAvailability(newAvailability)
+
+        // After loading availability data
+        console.log("Availability data:", availabilityData)
 
         // Load favorites data
+        console.log("Loading favorites data...")
         const { data: favoritesData, error: favoritesError } = await supabase.from("favorites").select("*")
 
-        if (favoritesError) throw favoritesError
+        if (favoritesError) {
+          console.error("Error loading favorites:", favoritesError)
+          throw favoritesError
+        }
 
         // Update favorites state
-        const newFavorites = { ...favoredDays }
         favoritesData.forEach((record: FavoriteRecord) => {
-          if (newFavorites[record.user_name]) {
-            newFavorites[record.user_name][record.date_key] = record.is_favorite
+          const participantIds = currentParticipants.map((p) => p.id)
+          if (participantIds.includes(record.user_id) && newFavoredDays[record.user_id]) {
+            newFavoredDays[record.user_id][record.date_key] = record.is_favorite
           }
         })
-        setFavoredDays(newFavorites)
+
+        // After loading favorites data
+        console.log("Favorites data:", favoritesData)
 
         // Load responses data
+        console.log("Loading responses data...")
         const { data: responsesData, error: responsesError } = await supabase.from("responses").select("*")
 
-        if (responsesError) throw responsesError
+        if (responsesError) {
+          console.error("Error loading responses:", responsesError)
+          throw responsesError
+        }
 
         // Update responses state
-        const newResponses = { ...responses }
         responsesData.forEach((record: ResponseRecord) => {
-          if (newResponses[record.user_name]) {
-            newResponses[record.user_name] = {
+          const participantIds = currentParticipants.map((p) => p.id)
+          if (participantIds.includes(record.user_id) && newResponses[record.user_id]) {
+            newResponses[record.user_id] = {
               hasResponded: record.has_responded,
               cantAttend: record.cant_attend,
             }
           }
         })
-        setResponses(newResponses)
+
+        // After loading responses data
+        console.log("Responses data:", responsesData)
 
         // Load messages
+        console.log("Loading messages data...")
         const { data: messagesData, error: messagesError } = await supabase
           .from("messages")
           .select("*")
           .order("timestamp", { ascending: true })
 
-        if (messagesError) throw messagesError
+        if (messagesError) {
+          console.error("Error loading messages:", messagesError)
+          throw messagesError
+        }
+
+        // After loading messages data
+        console.log("Messages data:", messagesData)
+
+        // Create a map of user IDs to names for message display
+        const userIdToName = usersData.reduce((acc: Record<number, string>, user: User) => {
+          acc[user.id] = user.name
+          return acc
+        }, {})
 
         // Update messages state
         const chatMessages: ChatMessage[] = messagesData.map((record: MessageRecord) => ({
           id: record.id.toString(),
-          sender: record.sender,
+          sender: userIdToName[record.user_id] || "Unknown",
+          senderId: record.user_id,
           text: record.text,
           timestamp: new Date(record.timestamp),
         }))
         setMessages(chatMessages)
+
+        // Set state
+        setAvailability(newAvailability)
+        setFavoredDays(newFavoredDays)
+        setResponses(newResponses)
+
+        // After processing all data
+        console.log("Final state:", {
+          availability: newAvailability,
+          favoredDays: newFavoredDays,
+          responses: newResponses,
+          messages: chatMessages,
+        })
+
+        console.log("Data loading completed successfully")
       } catch (error) {
         console.error("Error loading data:", error)
+        setLoadingError(error instanceof Error ? error.message : "Unknown error loading data")
         toast({
           title: "Error",
           description: "Failed to load data. Please try again.",
@@ -280,13 +458,21 @@ export default function AfterWorkPlanner() {
           schema: "public",
           table: "messages",
         },
-        (payload) => {
+        async (payload) => {
+          console.log("New message received:", payload)
           const newMessage = payload.new as MessageRecord
+
+          // Get the user name for the message
+          const { data: userData } = await supabase.from("users").select("name").eq("id", newMessage.user_id).single()
+
+          const userName = userData?.name || "Unknown"
+
           setMessages((prev) => [
             ...prev,
             {
               id: newMessage.id.toString(),
-              sender: newMessage.sender,
+              sender: userName,
+              senderId: newMessage.user_id,
               text: newMessage.text,
               timestamp: new Date(newMessage.timestamp),
             },
@@ -297,9 +483,10 @@ export default function AfterWorkPlanner() {
 
     // Cleanup subscriptions
     return () => {
+      console.log("Cleaning up subscriptions")
       supabase.removeChannel(messagesSubscription)
     }
-  }, [])
+  }, [version]) // Only run when version changes
 
   // Mark component as hydrated after mount
   useEffect(() => {
@@ -307,39 +494,49 @@ export default function AfterWorkPlanner() {
   }, [])
 
   // Toggle availability for a participant on a specific day
-  const toggleAvailability = async (participant: string, dateKey: string) => {
+  const toggleAvailability = async (userId: number, dateKey: string) => {
     // Only allow toggling if this is the selected user
-    if (participant !== selectedUser) return
+    if (userId !== selectedUserId) return
+
+    // Make sure the participant and dateKey exist in our state
+    if (!availability[userId] || availability[userId][dateKey] === undefined) return
 
     // Update local state first for immediate feedback
-    const newValue = !availability[participant][dateKey]
+    const newValue = !availability[userId][dateKey]
     setAvailability((prev) => ({
       ...prev,
-      [participant]: {
-        ...prev[participant],
+      [userId]: {
+        ...prev[userId],
         [dateKey]: newValue,
       },
     }))
 
     try {
+      console.log(`Toggling availability for user ${userId} on date ${dateKey} to ${newValue}`)
+
       // Update or insert availability record
-      const { error } = await supabase.from("availability").upsert(
+      const { data, error } = await supabase.from("availability").upsert(
         {
-          user_name: participant,
+          user_id: userId,
           date_key: dateKey,
           is_available: newValue,
           updated_at: new Date().toISOString(),
         },
         {
-          onConflict: "user_name,date_key",
+          onConflict: "user_id,date_key",
         },
       )
 
-      if (error) throw error
+      if (error) {
+        console.error("Error updating availability:", error)
+        throw error
+      }
+
+      console.log("Availability update result:", data)
 
       // If making unavailable, also remove favored status
-      if (!newValue && favoredDays[participant][dateKey]) {
-        toggleFavored(participant, dateKey)
+      if (!newValue && favoredDays[userId] && favoredDays[userId][dateKey]) {
+        toggleFavored(userId, dateKey)
       }
 
       // Check if this was the last available date being cleared
@@ -351,7 +548,7 @@ export default function AfterWorkPlanner() {
           // Skip the current date we just updated
           if (key === dateKey) continue
 
-          if (availability[participant][key]) {
+          if (availability[userId] && availability[userId][key]) {
             hasAnyAvailableDates = true
             break
           }
@@ -360,18 +557,14 @@ export default function AfterWorkPlanner() {
 
       // Mark user as responded only if they have at least one available date
       // or if they're marking a date as available
-      await updateUserResponse(
-        participant,
-        newValue || hasAnyAvailableDates,
-        responses[participant]?.cantAttend || false,
-      )
+      await updateUserResponse(userId, newValue || hasAnyAvailableDates, responses[userId]?.cantAttend || false)
     } catch (error) {
       console.error("Error updating availability:", error)
       // Revert local state if the update failed
       setAvailability((prev) => ({
         ...prev,
-        [participant]: {
-          ...prev[participant],
+        [userId]: {
+          ...prev[userId],
           [dateKey]: !newValue,
         },
       }))
@@ -384,48 +577,58 @@ export default function AfterWorkPlanner() {
   }
 
   // Toggle favored status for a participant on a specific day
-  const toggleFavored = async (participant: string, dateKey: string) => {
+  const toggleFavored = async (userId: number, dateKey: string) => {
     // Only allow toggling if this is the selected user
-    if (participant !== selectedUser) return
+    if (userId !== selectedUserId) return
+
+    // Make sure the participant and dateKey exist in our state
+    if (!availability[userId] || !favoredDays[userId]) return
 
     // Only allow toggling favored if the day is available
-    if (availability[participant][dateKey]) {
-      const newValue = !favoredDays[participant][dateKey]
+    if (availability[userId][dateKey]) {
+      const newValue = !favoredDays[userId][dateKey]
 
       // Update local state first for immediate feedback
       setFavoredDays((prev) => ({
         ...prev,
-        [participant]: {
-          ...prev[participant],
+        [userId]: {
+          ...prev[userId],
           [dateKey]: newValue,
         },
       }))
 
       try {
+        console.log(`Toggling favorite for user ${userId} on date ${dateKey} to ${newValue}`)
+
         // Update or insert favorite record
-        const { error } = await supabase.from("favorites").upsert(
+        const { data, error } = await supabase.from("favorites").upsert(
           {
-            user_name: participant,
+            user_id: userId,
             date_key: dateKey,
             is_favorite: newValue,
             updated_at: new Date().toISOString(),
           },
           {
-            onConflict: "user_name,date_key",
+            onConflict: "user_id,date_key",
           },
         )
 
-        if (error) throw error
+        if (error) {
+          console.error("Error updating favorites:", error)
+          throw error
+        }
+
+        console.log("Favorites update result:", data)
 
         // Mark user as responded
-        await updateUserResponse(participant, true, responses[participant]?.cantAttend || false)
+        await updateUserResponse(userId, true, responses[userId]?.cantAttend || false)
       } catch (error) {
         console.error("Error updating favorites:", error)
         // Revert local state if the update failed
         setFavoredDays((prev) => ({
           ...prev,
-          [participant]: {
-            ...prev[participant],
+          [userId]: {
+            ...prev[userId],
             [dateKey]: !newValue,
           },
         }))
@@ -435,12 +638,12 @@ export default function AfterWorkPlanner() {
           variant: "destructive",
         })
       }
-    } else if (favoredDays[participant][dateKey]) {
+    } else if (favoredDays[userId][dateKey]) {
       // If the day is marked as favored but not available, remove the favored status
       setFavoredDays((prev) => ({
         ...prev,
-        [participant]: {
-          ...prev[participant],
+        [userId]: {
+          ...prev[userId],
           [dateKey]: false,
         },
       }))
@@ -449,13 +652,13 @@ export default function AfterWorkPlanner() {
         // Update favorite record
         const { error } = await supabase.from("favorites").upsert(
           {
-            user_name: participant,
+            user_id: userId,
             date_key: dateKey,
             is_favorite: false,
             updated_at: new Date().toISOString(),
           },
           {
-            onConflict: "user_name,date_key",
+            onConflict: "user_id,date_key",
           },
         )
 
@@ -472,13 +675,15 @@ export default function AfterWorkPlanner() {
   }
 
   // Set all days as available or unavailable for a participant
-  const setAllAvailability = async (participant: string, value: boolean) => {
+  const setAllAvailability = async (userId: number, value: boolean) => {
     // Only allow setting if this is the selected user
-    if (participant !== selectedUser) return
+    if (userId !== selectedUserId) return
 
     setIsLoading(true)
 
     try {
+      console.log(`Setting all availability for user ${userId} to ${value}`)
+
       // Update local state first for immediate feedback
       const newAvailability = { ...availability }
       const newFavoredDays = { ...favoredDays }
@@ -490,28 +695,22 @@ export default function AfterWorkPlanner() {
         const dateKey = date.toISOString()
 
         // Update local state
-        newAvailability[participant][dateKey] = value
+        if (newAvailability[userId]) {
+          newAvailability[userId][dateKey] = value
+        }
 
         // If making unavailable, also remove favored status
-        if (!value && favoredDays[participant][dateKey]) {
-          newFavoredDays[participant][dateKey] = false
-
-          // Add to database batch
-          availabilityBatch.push({
-            user_name: participant,
-            date_key: dateKey,
-            is_available: value,
-            updated_at: new Date().toISOString(),
-          })
-        } else {
-          // Add to database batch
-          availabilityBatch.push({
-            user_name: participant,
-            date_key: dateKey,
-            is_available: value,
-            updated_at: new Date().toISOString(),
-          })
+        if (!value && newFavoredDays[userId] && newFavoredDays[userId][dateKey]) {
+          newFavoredDays[userId][dateKey] = false
         }
+
+        // Add to database batch
+        availabilityBatch.push({
+          user_id: userId,
+          date_key: dateKey,
+          is_available: value,
+          updated_at: new Date().toISOString(),
+        })
       }
 
       // Update state
@@ -521,26 +720,35 @@ export default function AfterWorkPlanner() {
       // If making all unavailable, delete all availability and favorites records
       if (!value) {
         // Delete all availability records for this user
-        const { error: deleteAvailError } = await supabase.from("availability").delete().eq("user_name", participant)
+        const { error: deleteAvailError } = await supabase.from("availability").delete().eq("user_id", userId)
 
-        if (deleteAvailError) throw deleteAvailError
+        if (deleteAvailError) {
+          console.error("Error deleting availability:", deleteAvailError)
+          throw deleteAvailError
+        }
 
         // Delete all favorites records for this user
-        const { error: deleteFavError } = await supabase.from("favorites").delete().eq("user_name", participant)
+        const { error: deleteFavError } = await supabase.from("favorites").delete().eq("user_id", userId)
 
-        if (deleteFavError) throw deleteFavError
+        if (deleteFavError) {
+          console.error("Error deleting favorites:", deleteFavError)
+          throw deleteFavError
+        }
       } else {
         // Insert all availability records
         const { error } = await supabase
           .from("availability")
-          .upsert(availabilityBatch, { onConflict: "user_name,date_key" })
+          .upsert(availabilityBatch, { onConflict: "user_id,date_key" })
 
-        if (error) throw error
+        if (error) {
+          console.error("Error upserting availability batch:", error)
+          throw error
+        }
       }
 
       // Mark user as responded or not responded based on the action
       // If clearing all entries (value is false), mark as not responded
-      await updateUserResponse(participant, value, false)
+      await updateUserResponse(userId, value, false)
 
       toast({
         title: "Success",
@@ -559,31 +767,38 @@ export default function AfterWorkPlanner() {
   }
 
   // Update user response status
-  const updateUserResponse = async (participant: string, hasResponded: boolean, cantAttend: boolean) => {
+  const updateUserResponse = async (userId: number, hasResponded: boolean, cantAttend: boolean) => {
     try {
+      console.log(`Updating response for user ${userId}: hasResponded=${hasResponded}, cantAttend=${cantAttend}`)
+
       // Update local state
       setResponses((prev) => ({
         ...prev,
-        [participant]: {
+        [userId]: {
           hasResponded,
           cantAttend,
         },
       }))
 
       // Update database
-      const { error } = await supabase.from("responses").upsert(
+      const { data, error } = await supabase.from("responses").upsert(
         {
-          user_name: participant,
+          user_id: userId,
           has_responded: hasResponded,
           cant_attend: cantAttend,
           updated_at: new Date().toISOString(),
         },
         {
-          onConflict: "user_name",
+          onConflict: "user_id",
         },
       )
 
-      if (error) throw error
+      if (error) {
+        console.error("Error updating response:", error)
+        throw error
+      }
+
+      console.log("Response update result:", data)
     } catch (error) {
       console.error("Error updating response status:", error)
       toast({
@@ -595,14 +810,18 @@ export default function AfterWorkPlanner() {
   }
 
   // Toggle "can't attend" status
-  const toggleCantAttend = async (participant: string) => {
+  const toggleCantAttend = async (userId: number) => {
     // Only allow toggling if this is the selected user
-    if (participant !== selectedUser) return
+    if (userId !== selectedUserId) return
 
-    const newValue = !responses[participant]?.cantAttend
+    // Make sure the participant exists in our responses state
+    if (!responses[userId]) return
+
+    const newValue = !responses[userId]?.cantAttend
 
     try {
       setIsLoading(true)
+      console.log(`Toggling can't attend for user ${userId} to ${newValue}`)
 
       // If marking as "can't attend", clear all availability
       if (newValue) {
@@ -612,24 +831,34 @@ export default function AfterWorkPlanner() {
 
         for (const date of weekdays) {
           const dateKey = date.toISOString()
-          newAvailability[participant][dateKey] = false
-          newFavoredDays[participant][dateKey] = false
+          if (newAvailability[userId]) {
+            newAvailability[userId][dateKey] = false
+          }
+          if (newFavoredDays[userId]) {
+            newFavoredDays[userId][dateKey] = false
+          }
         }
 
         setAvailability(newAvailability)
         setFavoredDays(newFavoredDays)
 
         // Delete all availability records for this user
-        const { error: deleteAvailError } = await supabase.from("availability").delete().eq("user_name", participant)
-        if (deleteAvailError) throw deleteAvailError
+        const { error: deleteAvailError } = await supabase.from("availability").delete().eq("user_id", userId)
+        if (deleteAvailError) {
+          console.error("Error deleting availability:", deleteAvailError)
+          throw deleteAvailError
+        }
 
         // Delete all favorites records for this user
-        const { error: deleteFavError } = await supabase.from("favorites").delete().eq("user_name", participant)
-        if (deleteFavError) throw deleteFavError
+        const { error: deleteFavError } = await supabase.from("favorites").delete().eq("user_id", userId)
+        if (deleteFavError) {
+          console.error("Error deleting favorites:", deleteFavError)
+          throw deleteFavError
+        }
       }
 
       // Update response status
-      await updateUserResponse(participant, true, newValue)
+      await updateUserResponse(userId, true, newValue)
 
       toast({
         title: "Success",
@@ -649,19 +878,30 @@ export default function AfterWorkPlanner() {
 
   // Calculate the best day(s) for dinner
   const getBestDays = () => {
+    // Make sure all required data is available
+    if (!participants.length || !Object.keys(availability).length) {
+      return []
+    }
+
     const dayCounts = weekdays.map((date) => {
       const dateKey = date.toISOString()
 
-      // Count available participants
-      const availableCount = participants.filter((participant) => availability[participant][dateKey]).length
+      // Count available participants with defensive checks
+      const availableCount = participants.filter(
+        (participant) => availability[participant.id] && availability[participant.id][dateKey],
+      ).length
 
-      // Count favored participants (only count if also available)
+      // Count favored participants (only count if also available) with defensive checks
       const favoredCount = participants.filter(
-        (participant) => availability[participant][dateKey] && favoredDays[participant][dateKey],
+        (participant) =>
+          availability[participant.id] &&
+          availability[participant.id][dateKey] &&
+          favoredDays[participant.id] &&
+          favoredDays[participant.id][dateKey],
       ).length
 
       // Count responded participants for this date
-      const respondedCount = getRespondedCount(dateKey)
+      const respondedCount = getRespondedCount()
 
       return {
         date,
@@ -709,14 +949,15 @@ export default function AfterWorkPlanner() {
     }))
   }
 
-  // Count how many participants have made any selection for a date
-  const getRespondedCount = (dateKey: string) => {
-    return participants.filter((participant) => responses[participant]?.hasResponded).length
+  // Count how many participants have made any selection
+  const getRespondedCount = () => {
+    return participants.filter((participant) => responses[participant.id] && responses[participant.id]?.hasResponded)
+      .length
   }
 
-  // Replace the getCantAttendCount function with a function that returns the names
+  // Get participants who can't attend
   const getCantAttendParticipants = () => {
-    return participants.filter((participant) => responses[participant]?.cantAttend)
+    return participants.filter((participant) => responses[participant.id] && responses[participant.id]?.cantAttend)
   }
 
   // Format date for mobile view
@@ -748,17 +989,24 @@ export default function AfterWorkPlanner() {
   }
 
   // Sort users with selected user at the top
-  const getSortedParticipants = (users: string[], selectedUser: string | null) => {
-    if (!selectedUser) return users
+  const getSortedParticipants = (users: Participant[], selectedId: number | null) => {
+    if (!selectedId) return users
 
-    return [selectedUser, ...users.filter((user) => user !== selectedUser)]
+    return [...users.filter((user) => user.id === selectedId), ...users.filter((user) => user.id !== selectedId)]
   }
 
   // Handle user selection
-  const handleUserSelect = async (user: string) => {
+  const handleUserSelect = async (userId: number) => {
     try {
+      // Find the user name
+      const user = participants.find((p) => p.id === userId)
+      if (!user) {
+        throw new Error("User not found")
+      }
+
       // Set the new selected user
-      setSelectedUser(user)
+      setSelectedUserId(userId)
+      setSelectedUserName(user.name)
       setShowUserDialog(false)
     } catch (error) {
       console.error("Error selecting user:", error)
@@ -772,14 +1020,15 @@ export default function AfterWorkPlanner() {
 
   // Handle sending a new message
   const handleSendMessage = async () => {
-    if (newMessage.trim() === "" || !selectedUser) return
+    if (newMessage.trim() === "" || !selectedUserId) return
 
     const timestamp = new Date()
 
     // Create new message object for local state
     const newMsg: ChatMessage = {
       id: Date.now().toString(),
-      sender: selectedUser,
+      sender: selectedUserName || "Unknown",
+      senderId: selectedUserId,
       text: newMessage.trim(),
       timestamp: timestamp,
     }
@@ -791,7 +1040,7 @@ export default function AfterWorkPlanner() {
     try {
       // Save message to database
       const { error } = await supabase.from("messages").insert({
-        sender: selectedUser,
+        user_id: selectedUserId,
         text: newMessage.trim(),
         timestamp: timestamp.toISOString(),
       })
@@ -819,6 +1068,21 @@ export default function AfterWorkPlanner() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
+  // Handle version change
+  const handleVersionChange = (newVersion: string) => {
+    if (version === newVersion) return // Don't do anything if version hasn't changed
+
+    const url = new URL(window.location.href)
+    url.searchParams.set("version", newVersion)
+    window.history.pushState({}, "", url)
+    setVersion(newVersion)
+
+    // Update participants based on the new version
+    setParticipants(userSets[newVersion] || [])
+    setSelectedUserId(null) // Reset selected user when changing versions
+    setSelectedUserName(null)
+  }
+
   return (
     <div className="min-h-screen bg-[#f9f5f3]">
       {/* Only render the custom dialog when hydrated */}
@@ -826,7 +1090,7 @@ export default function AfterWorkPlanner() {
         <UserSelectionDialog
           isOpen={showUserDialog}
           participants={participants}
-          selectedUser={selectedUser}
+          selectedUserId={selectedUserId}
           isLoading={isLoading}
           onUserSelect={handleUserSelect}
           getAvatarColor={getAvatarColor}
@@ -839,7 +1103,32 @@ export default function AfterWorkPlanner() {
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-2xl md:text-3xl font-bold">After Work</h1>
+          <div className="flex gap-2">
+            <Button
+              variant={version === "default" ? "default" : "outline"}
+              size="sm"
+              onClick={() => handleVersionChange("default")}
+            >
+              Version 1
+            </Button>
+            <Button
+              variant={version === "v2" ? "default" : "outline"}
+              size="sm"
+              onClick={() => handleVersionChange("v2")}
+            >
+              Version 2
+            </Button>
+          </div>
         </div>
+
+        {loadingError && (
+          <Alert className="mb-4 bg-red-50 border-red-200">
+            <AlertDescription className="flex items-center gap-2">
+              <XCircle className="h-4 w-4 text-red-500" />
+              <span>Error loading data: {loadingError}</span>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {isLoading ? (
           <div className="bg-white rounded-lg shadow-sm p-8 flex items-center justify-center">
@@ -852,13 +1141,13 @@ export default function AfterWorkPlanner() {
           <div className="bg-white rounded-lg shadow-sm overflow-hidden">
             {/* Header section */}
             <div className="border-b border-gray-100 p-4 md:p-6">
-              {selectedUser ? (
+              {selectedUserId ? (
                 <div className="flex items-center gap-3 mb-3">
-                  <Avatar className={`h-10 w-10 ${getAvatarColor(selectedUser)}`}>
-                    <AvatarFallback>{getInitials(selectedUser)}</AvatarFallback>
+                  <Avatar className={`h-10 w-10 ${getAvatarColor(selectedUserName || "")}`}>
+                    <AvatarFallback>{getInitials(selectedUserName || "")}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <h2 className="text-xl font-semibold">{selectedUser}</h2>
+                    <h2 className="text-xl font-semibold">{selectedUserName}</h2>
                     <p className="text-sm text-gray-600">Välj vilka dagar i maj som passar för after work</p>
                   </div>
                   <Button
@@ -903,15 +1192,15 @@ export default function AfterWorkPlanner() {
 
               {/* Availability Tab */}
               <TabsContent value="availability" className="p-4 md:p-6">
-                {selectedUser ? (
+                {selectedUserId ? (
                   <>
                     {/* Can't attend checkbox */}
                     <div className="mb-4">
                       <div className="flex items-center space-x-2">
                         <Checkbox
                           id="cant-attend"
-                          checked={responses[selectedUser]?.cantAttend || false}
-                          onCheckedChange={() => toggleCantAttend(selectedUser)}
+                          checked={responses[selectedUserId]?.cantAttend || false}
+                          onCheckedChange={() => toggleCantAttend(selectedUserId)}
                           disabled={isLoading}
                           className="data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500"
                         />
@@ -924,7 +1213,7 @@ export default function AfterWorkPlanner() {
                       </div>
                     </div>
 
-                    {responses[selectedUser]?.cantAttend && (
+                    {responses[selectedUserId]?.cantAttend && (
                       <Alert className="mb-6 bg-red-50 border-red-200">
                         <AlertDescription className="flex items-center gap-2">
                           <XCircle className="h-4 w-4 text-red-500" />
@@ -935,21 +1224,21 @@ export default function AfterWorkPlanner() {
 
                     {/* Mobile view - show all users */}
                     <div className="md:hidden mb-6">
-                      {getSortedParticipants(participants, selectedUser).map((participant) => {
-                        const isCurrentUser = participant === selectedUser
-                        const cantAttend = responses[participant]?.cantAttend
+                      {getSortedParticipants(participants, selectedUserId).map((participant) => {
+                        const isCurrentUser = participant.id === selectedUserId
+                        const cantAttend = responses[participant.id]?.cantAttend
 
                         return (
                           <div
-                            key={participant}
+                            key={participant.id}
                             className={`mb-6 p-3 rounded-lg ${isCurrentUser ? "bg-white shadow-sm" : "bg-gray-50 border"}`}
                           >
                             <div className="flex items-center justify-between mb-3">
                               <div className="flex items-center gap-2">
-                                <Avatar className={`h-6 w-6 ${getAvatarColor(participant)}`}>
-                                  <AvatarFallback>{getInitials(participant)}</AvatarFallback>
+                                <Avatar className={`h-6 w-6 ${getAvatarColor(participant.name)}`}>
+                                  <AvatarFallback>{getInitials(participant.name)}</AvatarFallback>
                                 </Avatar>
-                                <h3 className="font-medium">{participant}</h3>
+                                <h3 className="font-medium">{participant.name}</h3>
                                 {isCurrentUser && (
                                   <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full">Du</span>
                                 )}
@@ -961,7 +1250,7 @@ export default function AfterWorkPlanner() {
                                     size="sm"
                                     variant="outline"
                                     className="flex items-center gap-1"
-                                    onClick={() => setAllAvailability(participant, true)}
+                                    onClick={() => setAllAvailability(participant.id, true)}
                                     disabled={isLoading}
                                   >
                                     <PlusCircle className="h-4 w-4 text-green-500" />
@@ -971,7 +1260,7 @@ export default function AfterWorkPlanner() {
                                     size="sm"
                                     variant="outline"
                                     className="flex items-center gap-1"
-                                    onClick={() => setAllAvailability(participant, false)}
+                                    onClick={() => setAllAvailability(participant.id, false)}
                                     disabled={isLoading}
                                   >
                                     <MinusCircle className="h-4 w-4 text-red-500" />
@@ -984,12 +1273,12 @@ export default function AfterWorkPlanner() {
                             <div className="grid grid-cols-5 gap-2">
                               {weekdays.map((date) => {
                                 const dateKey = date.toISOString()
-                                const isAvailable = availability[participant][dateKey]
-                                const isFavored = favoredDays[participant][dateKey]
+                                const isAvailable = availability[participant.id]?.[dateKey] || false
+                                const isFavored = favoredDays[participant.id]?.[dateKey] || false
 
                                 return (
                                   <div
-                                    key={`${participant}-${dateKey}-mobile`}
+                                    key={`${participant.id}-${dateKey}-mobile`}
                                     className="flex flex-col items-center border rounded-lg p-2"
                                   >
                                     <div className="text-xs font-medium text-gray-500">{formatWeekdayMobile(date)}</div>
@@ -1002,16 +1291,16 @@ export default function AfterWorkPlanner() {
                                           <Checkbox
                                             checked={isAvailable}
                                             onCheckedChange={() => {
-                                              toggleAvailability(participant, dateKey)
+                                              toggleAvailability(participant.id, dateKey)
                                               if (isAvailable && isFavored) {
-                                                toggleFavored(participant, dateKey)
+                                                toggleFavored(participant.id, dateKey)
                                               }
                                             }}
                                             className="data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500 h-5 w-5"
                                             disabled={!isCurrentUser || isLoading}
                                           />
                                           <button
-                                            onClick={() => toggleFavored(participant, dateKey)}
+                                            onClick={() => toggleFavored(participant.id, dateKey)}
                                             disabled={!isAvailable || !isCurrentUser || isLoading}
                                             className={`flex items-center justify-center h-6 w-6 rounded-full ${
                                               !isAvailable || !isCurrentUser
@@ -1062,22 +1351,22 @@ export default function AfterWorkPlanner() {
                           </tr>
                         </thead>
                         <tbody>
-                          {getSortedParticipants(participants, selectedUser).map((participant) => {
-                            const isCurrentUser = participant === selectedUser
-                            const cantAttend = responses[participant]?.cantAttend
+                          {getSortedParticipants(participants, selectedUserId).map((participant) => {
+                            const isCurrentUser = participant.id === selectedUserId
+                            const cantAttend = responses[participant.id]?.cantAttend
 
                             return (
                               <tr
-                                key={participant}
+                                key={participant.id}
                                 className={`border-b border-gray-100 ${isCurrentUser ? "bg-white" : "bg-gray-50"}`}
                               >
                                 <td className="p-2 font-medium text-left">
                                   <div className="flex items-center gap-2">
-                                    <Avatar className={`h-6 w-6 ${getAvatarColor(participant)}`}>
-                                      <AvatarFallback>{getInitials(participant)}</AvatarFallback>
+                                    <Avatar className={`h-6 w-6 ${getAvatarColor(participant.name)}`}>
+                                      <AvatarFallback>{getInitials(participant.name)}</AvatarFallback>
                                     </Avatar>
-                                    {participant}
-                                    {participant === selectedUser && (
+                                    {participant.name}
+                                    {participant.id === selectedUserId && (
                                       <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full">Du</span>
                                     )}
                                   </div>
@@ -1089,7 +1378,7 @@ export default function AfterWorkPlanner() {
                                         size="sm"
                                         variant="ghost"
                                         className="h-8 w-8 p-0"
-                                        onClick={() => setAllAvailability(participant, true)}
+                                        onClick={() => setAllAvailability(participant.id, true)}
                                         disabled={!isCurrentUser || isLoading}
                                       >
                                         <PlusCircle
@@ -1101,7 +1390,7 @@ export default function AfterWorkPlanner() {
                                         size="sm"
                                         variant="ghost"
                                         className="h-8 w-8 p-0"
-                                        onClick={() => setAllAvailability(participant, false)}
+                                        onClick={() => setAllAvailability(participant.id, false)}
                                         disabled={!isCurrentUser || isLoading}
                                       >
                                         <MinusCircle
@@ -1114,11 +1403,11 @@ export default function AfterWorkPlanner() {
                                 </td>
                                 {weekdays.map((date) => {
                                   const dateKey = date.toISOString()
-                                  const isAvailable = availability[participant][dateKey]
-                                  const isFavored = favoredDays[participant][dateKey]
+                                  const isAvailable = availability[participant.id]?.[dateKey] || false
+                                  const isFavored = favoredDays[participant.id]?.[dateKey] || false
 
                                   return (
-                                    <td key={`${participant}-${dateKey}`} className="p-2 text-center">
+                                    <td key={`${participant.id}-${dateKey}`} className="p-2 text-center">
                                       {cantAttend ? (
                                         <XCircle className="h-4 w-4 text-red-300 mx-auto" />
                                       ) : (
@@ -1126,9 +1415,9 @@ export default function AfterWorkPlanner() {
                                           <Checkbox
                                             checked={isAvailable}
                                             onCheckedChange={() => {
-                                              toggleAvailability(participant, dateKey)
+                                              toggleAvailability(participant.id, dateKey)
                                               if (isAvailable && isFavored) {
-                                                toggleFavored(participant, dateKey)
+                                                toggleFavored(participant.id, dateKey)
                                               }
                                             }}
                                             className={`
@@ -1136,13 +1425,13 @@ export default function AfterWorkPlanner() {
                       data-[state=checked]:border-red-500
                       ${!isCurrentUser ? "opacity-60" : ""}
                     `}
-                                            disabled={participant !== selectedUser || isLoading}
+                                            disabled={participant.id !== selectedUserId || isLoading}
                                           />
                                           <button
-                                            onClick={() => toggleFavored(participant, dateKey)}
-                                            disabled={!isAvailable || participant !== selectedUser || isLoading}
+                                            onClick={() => toggleFavored(participant.id, dateKey)}
+                                            disabled={!isAvailable || participant.id !== selectedUserId || isLoading}
                                             className={`flex items-center justify-center h-6 w-6 rounded-full ${
-                                              !isAvailable || participant !== selectedUser
+                                              !isAvailable || participant.id !== selectedUserId
                                                 ? "opacity-30 cursor-not-allowed"
                                                 : "cursor-pointer"
                                             }`}
@@ -1172,7 +1461,7 @@ export default function AfterWorkPlanner() {
 
               {/* Chat Tab */}
               <TabsContent value="chat" className="p-4 md:p-6">
-                {selectedUser ? (
+                {selectedUserId ? (
                   <div className="flex flex-col h-[500px]">
                     {/* Chat messages */}
                     <div className="flex-1 overflow-y-auto mb-4">
@@ -1180,7 +1469,7 @@ export default function AfterWorkPlanner() {
                         <div
                           key={message.id}
                           className={`mb-2 p-2 rounded-lg ${
-                            message.sender === selectedUser ? "bg-red-100 ml-auto" : "bg-gray-100 mr-auto"
+                            message.senderId === selectedUserId ? "bg-red-100 ml-auto" : "bg-gray-100 mr-auto"
                           } w-fit max-w-[80%]`}
                         >
                           <div className="text-xs text-gray-500">{message.sender}</div>
@@ -1225,7 +1514,12 @@ export default function AfterWorkPlanner() {
             <Alert className="mb-4 bg-yellow-50 border-yellow-200">
               <AlertDescription className="flex items-center gap-2">
                 <XCircle className="h-4 w-4 text-yellow-500" />
-                <span>{getCantAttendParticipants().join(", ")} kan inte delta någon av dessa dagar.</span>
+                <span>
+                  {getCantAttendParticipants()
+                    .map((p) => p.name)
+                    .join(", ")}{" "}
+                  kan inte delta någon av dessa dagar.
+                </span>
               </AlertDescription>
             </Alert>
           )}

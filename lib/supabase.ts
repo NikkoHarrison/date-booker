@@ -6,11 +6,13 @@ export type User = {
   name: string
   selected: boolean
   created_at: string
+  version?: string
 }
 
+// Updated type definitions to only use user_id
 export type AvailabilityRecord = {
   id: number
-  user_name: string
+  user_id: number
   date_key: string
   is_available: boolean
   created_at: string
@@ -19,7 +21,7 @@ export type AvailabilityRecord = {
 
 export type FavoriteRecord = {
   id: number
-  user_name: string
+  user_id: number
   date_key: string
   is_favorite: boolean
   created_at: string
@@ -28,14 +30,14 @@ export type FavoriteRecord = {
 
 export type MessageRecord = {
   id: number
-  sender: string
+  user_id: number
   text: string
   timestamp: string
 }
 
 export type ResponseRecord = {
   id: number
-  user_name: string
+  user_id: number
   has_responded: boolean
   cant_attend: boolean
   updated_at: string
