@@ -19,7 +19,6 @@ import {
 } from "@/lib/supabase"
 import { toast } from "@/hooks/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 // Update ChatMessage interface to use user_id and include user name
 interface ChatMessage {
@@ -164,25 +163,6 @@ export default function AfterWorkPlanner() {
   const [favoredDays, setFavoredDays] = useState<Record<number, Record<string, boolean>>>({})
 
   // Handle version change
-  const handleVersionChange = (newVersion: string) => {
-    const versionNumber = Number.parseInt(newVersion)
-    setCurrentVersion(versionNumber)
-
-    // Update URL with new version
-    const params = new URLSearchParams(searchParams.toString())
-    params.set("version", newVersion)
-    router.push(`?${params.toString()}`)
-
-    // Reset states and reload data
-    setSelectedUserId(null)
-    setSelectedUserName(null)
-    setAvailability({})
-    setFavoredDays({})
-    setResponses({})
-    setMessages([])
-    loadData(versionNumber)
-  }
-
   // Load data based on version
   const loadData = async (version: number) => {
     setIsLoading(true)
@@ -996,23 +976,6 @@ export default function AfterWorkPlanner() {
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-2xl md:text-3xl font-bold">After Work</h1>
-
-          {/* Version selector */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500">Version:</span>
-            <Select value={currentVersion.toString()} onValueChange={handleVersionChange}>
-              <SelectTrigger className="w-[100px]">
-                <SelectValue placeholder="Version" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableVersions.map((version) => (
-                  <SelectItem key={version} value={version.toString()}>
-                    {version}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
         </div>
 
         {isLoading ? (
