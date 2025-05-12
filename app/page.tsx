@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Star, Users, PlusCircle, MinusCircle, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -98,59 +98,7 @@ function UserSelectionDialog({
   )
 }
 
-// Add VersionSelectionDialog component
-function VersionSelectionDialog({
-  isOpen,
-  versions,
-  onVersionSelect,
-}: {
-  isOpen: boolean
-  versions: number[]
-  onVersionSelect: (version: number) => void
-}) {
-  // Use state to track if component is mounted
-  const [isMounted, setIsMounted] = useState(false)
-
-  useEffect(() => {
-    setIsMounted(true)
-  }, [])
-
-  // Don't render anything during SSR or before hydration
-  if (!isMounted) return null
-
-  return (
-    <div
-      className={`fixed inset-0 bg-black/50 z-50 flex items-center justify-center transition-opacity duration-200 ${
-        isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
-      }`}
-      onClick={(e) => e.stopPropagation()}
-    >
-      <div
-        className="bg-white rounded-lg shadow-lg w-full max-w-md mx-4 overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="p-6">
-          <h2 className="text-center text-2xl font-semibold mb-2">Välj version</h2>
-          <p className="text-center text-gray-500 mb-6">Välj vilken version av deltagarlistan du vill använda</p>
-          <div className="grid grid-cols-1 gap-4 py-4">
-            {versions.map((version) => (
-              <Button
-                key={version}
-                variant="outline"
-                className="flex items-center justify-start gap-3 h-14 px-4"
-                onClick={() => onVersionSelect(version)}
-              >
-                <span className="text-lg">Version {version + 1}</span>
-              </Button>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-export default function AfterWorkPlanner() {
+export default function DatePicker() {
   const isMobile = useMobile()
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -183,33 +131,23 @@ export default function AfterWorkPlanner() {
   // State for responses
   const [responses, setResponses] = useState<Record<number, { hasResponded: boolean; cantAttend: boolean }>>({})
 
-  // State for version selection
-  const [showVersionDialog, setShowVersionDialog] = useState(false)
-
-  // Generate all weekdays in May 2025
-  const generateMayWeekdays = () => {
+  // Generate dates from May 13th to May 30th, 2025 (all days of the week)
+  const generateDateRange = () => {
     const dates = []
     const year = 2025
     const month = 4 // May is 4 in JavaScript (0-indexed)
+    const startDay = 13
+    const endDay = 30
 
-    // Get all days in May 2025
-    const date = new Date(year, month, 1)
-    const lastDay = new Date(year, month + 1, 0).getDate()
-
-    for (let day = 1; day <= lastDay; day++) {
-      date.setDate(day)
-      const dayOfWeek = date.getDay()
-
-      // Only include weekdays (Monday-Friday: 1-5)
-      if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-        dates.push(new Date(year, month, day))
-      }
+    for (let day = startDay; day <= endDay; day++) {
+      const date = new Date(year, month, day)
+      dates.push(date)
     }
 
     return dates
   }
 
-  const weekdays = generateMayWeekdays()
+  const dateRange = generateDateRange()
 
   // Initialize availability state with all false values
   const [availability, setAvailability] = useState<Record<number, Record<string, boolean>>>({})
@@ -217,8 +155,9 @@ export default function AfterWorkPlanner() {
   // Initialize favored days state with all false values
   const [favoredDays, setFavoredDays] = useState<Record<number, Record<string, boolean>>>({})
 
+  // Handle version change
   // Load data based on version
-  const loadData = useCallback(async (version: number) => {
+  const loadData = async (version: number) => {
     setIsLoading(true)
     try {
       // First, get all available versions
@@ -250,7 +189,7 @@ export default function AfterWorkPlanner() {
       const newResponses: Record<number, { hasResponded: boolean; cantAttend: boolean }> = {}
 
       usersData.forEach((user: User) => {
-        newAvailability[user.id] = weekdays.reduce(
+        newAvailability[user.id] = dateRange.reduce(
           (days, date) => {
             days[date.toISOString()] = false
             return days
@@ -258,7 +197,7 @@ export default function AfterWorkPlanner() {
           {} as Record<string, boolean>,
         )
 
-        newFavoredDays[user.id] = weekdays.reduce(
+        newFavoredDays[user.id] = dateRange.reduce(
           (days, date) => {
             days[date.toISOString()] = false
             return days
@@ -303,7 +242,7 @@ export default function AfterWorkPlanner() {
 
       if (favoritesError) throw favoritesError
 
-      // Update favored days state
+      // Update favorites state
       favoritesData.forEach((record: FavoriteRecord) => {
         if (newFavoredDays[record.user_id]) {
           newFavoredDays[record.user_id][record.date_key] = record.is_favorite
@@ -354,39 +293,58 @@ export default function AfterWorkPlanner() {
         timestamp: new Date(record.timestamp),
       }))
       setMessages(chatMessages)
-
-      setIsLoading(false)
-      // Show the version selection dialog after data is loaded
-      setShowVersionDialog(true)
     } catch (error) {
       console.error("Error loading data:", error)
       toast({
         title: "Error",
-        description: "Failed to load data",
+        description: "Failed to load data. Please try again.",
         variant: "destructive",
       })
+    } finally {
       setIsLoading(false)
+      // After data is loaded, show the dialog
+      setShowUserDialog(true)
     }
-  }, [weekdays])
-
-  // Handle version selection
-  const handleVersionSelect = (version: number) => {
-    setCurrentVersion(version)
-    setShowVersionDialog(false)
-    setShowUserDialog(true)
   }
 
   // Load initial data from Supabase
   useEffect(() => {
     loadData(currentVersion)
-  }, [currentVersion])
 
-  // Scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" })
+    // Set up real-time subscriptions
+    const messagesSubscription = supabase
+      .channel("messages-channel")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+        },
+        (payload) => {
+          const newMessage = payload.new as MessageRecord
+          // Only add message if it's from a user in the current version
+          if (userMap.has(newMessage.user_id)) {
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: newMessage.id.toString(),
+                user_id: newMessage.user_id,
+                sender: userMap.get(newMessage.user_id) || "Unknown",
+                text: newMessage.text,
+                timestamp: new Date(newMessage.timestamp),
+              },
+            ])
+          }
+        },
+      )
+      .subscribe()
+
+    // Cleanup subscriptions
+    return () => {
+      supabase.removeChannel(messagesSubscription)
     }
-  }, [messages])
+  }, [currentVersion])
 
   // Mark component as hydrated after mount
   useEffect(() => {
@@ -454,7 +412,7 @@ export default function AfterWorkPlanner() {
       let hasAnyAvailableDates = false
       if (!newValue) {
         // Check if there are any remaining available dates for this user
-        for (const date of weekdays) {
+        for (const date of dateRange) {
           const key = date.toISOString()
           // Skip the current date we just updated
           if (key === dateKey) continue
@@ -616,7 +574,7 @@ export default function AfterWorkPlanner() {
       const newAvailability = { ...availability }
       const newFavoredDays = { ...favoredDays }
 
-      for (const date of weekdays) {
+      for (const date of dateRange) {
         const dateKey = date.toISOString()
 
         // Update local state
@@ -645,7 +603,7 @@ export default function AfterWorkPlanner() {
         if (deleteFavError) throw deleteFavError
       } else {
         // For setting all to available, we need to handle each record individually
-        for (const date of weekdays) {
+        for (const date of dateRange) {
           const dateKey = date.toISOString()
 
           // Check if a record already exists
@@ -777,7 +735,7 @@ export default function AfterWorkPlanner() {
         const newAvailability = { ...availability }
         const newFavoredDays = { ...favoredDays }
 
-        for (const date of weekdays) {
+        for (const date of dateRange) {
           const dateKey = date.toISOString()
           newAvailability[userId][dateKey] = false
           newFavoredDays[userId][dateKey] = false
@@ -816,7 +774,7 @@ export default function AfterWorkPlanner() {
 
   // Calculate the best day(s) for dinner
   const getBestDays = () => {
-    const dayCounts = weekdays.map((date) => {
+    const dayCounts = dateRange.map((date) => {
       const dateKey = date.toISOString()
 
       // Count available users
@@ -931,7 +889,6 @@ export default function AfterWorkPlanner() {
       setSelectedUserId(userId)
       setSelectedUserName(userName)
       setShowUserDialog(false)
-      setShowVersionDialog(false) // Ensure version dialog is hidden
     } catch (error) {
       console.error("Error selecting user:", error)
       toast({
@@ -987,33 +944,31 @@ export default function AfterWorkPlanner() {
     return date.toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" })
   }
 
+  // Scroll to bottom of chat when new messages are added
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [messages])
+
   return (
     <div className="min-h-screen bg-[#f9f5f3]">
-      {/* Only render the custom dialogs when hydrated */}
+      {/* Only render the custom dialog when hydrated */}
       {isHydrated && (
-        <>
-          <VersionSelectionDialog
-            isOpen={showVersionDialog}
-            versions={availableVersions}
-            onVersionSelect={handleVersionSelect}
-          />
-          <UserSelectionDialog
-            isOpen={showUserDialog}
-            users={users}
-            selectedUserId={selectedUserId}
-            isLoading={isLoading}
-            onUserSelect={handleUserSelect}
-            getAvatarColor={getAvatarColor}
-            getInitials={getInitials}
-            getSortedUsers={getSortedUsers}
-          />
-        </>
+        <UserSelectionDialog
+          isOpen={showUserDialog}
+          users={users}
+          selectedUserId={selectedUserId}
+          isLoading={isLoading}
+          onUserSelect={handleUserSelect}
+          getAvatarColor={getAvatarColor}
+          getInitials={getInitials}
+          getSortedUsers={getSortedUsers}
+        />
       )}
 
       <div className="container mx-auto py-6 px-4">
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl md:text-3xl font-bold">After Work</h1>
+          <h1 className="text-2xl md:text-3xl font-bold">Date Picker</h1>
         </div>
 
         {isLoading ? (
@@ -1034,7 +989,7 @@ export default function AfterWorkPlanner() {
                   </Avatar>
                   <div>
                     <h2 className="text-xl font-semibold">{selectedUserName}</h2>
-                    <p className="text-sm text-gray-600">Välj vilka dagar i maj som passar för after work</p>
+                    <p className="text-sm text-gray-600">Välj vilka dagar i maj som passar för dig</p>
                   </div>
                   <Button
                     variant="outline"
@@ -1047,7 +1002,7 @@ export default function AfterWorkPlanner() {
                   </Button>
                 </div>
               ) : (
-                <p className="text-sm md:text-base text-gray-600">Välj vilka dagar i maj som passar för after work</p>
+                <p className="text-sm md:text-base text-gray-600">Välj vilka dagar i maj som passar för dig</p>
               )}
               <div className="flex flex-col md:flex-row md:items-center gap-2 text-sm text-gray-500">
                 <div className="flex items-center gap-1">
@@ -1156,8 +1111,8 @@ export default function AfterWorkPlanner() {
                               )}
                             </div>
 
-                            <div className="grid grid-cols-5 gap-2">
-                              {weekdays.map((date) => {
+                            <div className="grid grid-cols-3 gap-2">
+                              {dateRange.map((date) => {
                                 const dateKey = date.toISOString()
                                 const isAvailable = availability[user.id]?.[dateKey]
                                 const isFavored = favoredDays[user.id]?.[dateKey]
@@ -1219,7 +1174,7 @@ export default function AfterWorkPlanner() {
                           <tr>
                             <th className="text-left p-2 font-medium text-gray-500 border-b">Deltagare</th>
                             <th className="text-center p-2 font-medium text-gray-500 border-b">Åtgärder</th>
-                            {weekdays.map((date) => (
+                            {dateRange.map((date) => (
                               <th
                                 key={date.toISOString()}
                                 className="text-center p-2 font-medium text-gray-500 border-b"
@@ -1287,7 +1242,7 @@ export default function AfterWorkPlanner() {
                                     </div>
                                   )}
                                 </td>
-                                {weekdays.map((date) => {
+                                {dateRange.map((date) => {
                                   const dateKey = date.toISOString()
                                   const isAvailable = availability[user.id]?.[dateKey]
                                   const isFavored = favoredDays[user.id]?.[dateKey]
