@@ -35,6 +35,16 @@ const nextConfig = {
     }
     return config
   },
+  experimental: {
+    // Enable experimental features
+    appDir: true,
+  },
+  // Ensure proper module resolution
+  resolve: {
+    alias: {
+      '@': '.',
+    },
+  },
 }
 
 export default nextConfig
