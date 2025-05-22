@@ -20,7 +20,6 @@ const nextConfig = {
     unoptimized: true,
   },
   compiler: {
-    // Enable styled-jsx
     styledComponents: true,
   },
   webpack: (config) => {
@@ -28,22 +27,7 @@ const nextConfig = {
       ...config.resolve.alias,
       '@': '.',
     }
-    config.resolve.fallback = {
-      ...config.resolve.fallback,
-      fs: false,
-      path: false,
-    }
     return config
-  },
-  experimental: {
-    // Enable experimental features
-    appDir: true,
-  },
-  // Ensure proper module resolution
-  resolve: {
-    alias: {
-      '@': '.',
-    },
   },
 }
 
