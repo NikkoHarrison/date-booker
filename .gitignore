@@ -16,11 +16,27 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-
-
 # vercel
 .vercel
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Database and sensitive files
+.pgpass
+*.backup
+*.sql
+*.bat
+*.ps1
+.env*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
