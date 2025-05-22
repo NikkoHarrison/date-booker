@@ -1,6 +1,8 @@
 # Date Booker
 
-A modern web application for managing and booking dates/events. Built with Next.js and TypeScript.
+A modern date booking application built with Next.js and Supabase.
+
+Last updated: 2024-05-22 13:31 UTC
 
 ## Features
 
