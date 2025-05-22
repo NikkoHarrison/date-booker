@@ -13,10 +13,14 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   typescript: {
-    ignoreBuildErrors: true,
+    // Remove ignoreBuildErrors to see actual TypeScript errors
   },
   images: {
     unoptimized: true,
+  },
+  compiler: {
+    // Enable styled-jsx
+    styledComponents: true,
   },
 }
 
