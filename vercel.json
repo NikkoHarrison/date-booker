@@ -1,5 +1,5 @@
 {
-  "buildCommand": "rm -f pnpm-lock.yaml && npm install && npm run build",
-  "installCommand": "rm -f pnpm-lock.yaml && npm install",
+  "buildCommand": "rm -f pnpm-lock.yaml && npm install --save-dev typescript && npm install && npm run build",
+  "installCommand": "rm -f pnpm-lock.yaml && npm install --save-dev typescript && npm install",
   "framework": "nextjs"
 } 
