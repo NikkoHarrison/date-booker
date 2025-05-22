@@ -1,4 +1,5 @@
 {
-  "buildCommand": "npm install && npm run build",
-  "installCommand": "npm install"
+  "buildCommand": "rm -f pnpm-lock.yaml && npm install && npm run build",
+  "installCommand": "rm -f pnpm-lock.yaml && npm install",
+  "framework": "nextjs"
 } 
