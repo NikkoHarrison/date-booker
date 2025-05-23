@@ -912,44 +912,31 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
             <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Share this date picker</DialogTitle>
+                  <DialogTitle>Share Date Picker</DialogTitle>
                   <DialogDescription>
-                    Copy this message to share with your participants
+                    Share this message with your participants to let them know about the date picker.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm whitespace-pre-line">
-                    {`Hey! I've created a date picker for us to find the best time to meet.
-
-You can access it here:
-https://date-booker.vercel.app/${instanceId}
-
-Password: ${instancePassword}
-
-Please add your availability and I'll coordinate the best time for everyone!`}
-                  </p>
-                </div>
-                <DialogFooter>
+                <div className="space-y-4">
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-600">
+                      Hey! I've created a date picker for us to find the best time to meet. You can find it here:
+                      <br /><br />
+                      {window.location.href}
+                      <br /><br />
+                      Password: {currentInstance?.password}
+                    </p>
+                  </div>
                   <Button
+                    className="w-full"
                     onClick={() => {
-                      const message = `Hey! I've created a date picker for us to find the best time to meet.
-
-You can access it here:
-https://date-booker.vercel.app/${instanceId}
-
-Password: ${instancePassword}
-
-Please add your availability and I'll coordinate the best time for everyone!`
-                      navigator.clipboard.writeText(message)
-                      toast({
-                        title: "Copied!",
-                        description: "Message copied to clipboard",
-                      })
+                      const message = `Hey! I've created a date picker for us to find the best time to meet. You can find it here:\n\n${window.location.href}\n\nPassword: ${currentInstance?.password}`;
+                      copyToClipboard(message);
                     }}
                   >
                     Copy Message
                   </Button>
-                </DialogFooter>
+                </div>
               </DialogContent>
             </Dialog>
           </>
@@ -958,97 +945,95 @@ Please add your availability and I'll coordinate the best time for everyone!`
           <div className="flex justify-between items-center mb-4">
             <h1 className="text-2xl md:text-3xl font-bold">{currentInstance?.name || 'Date Picker'}</h1>
             <div className="flex items-center gap-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowShareDialog(true)}
-                className="flex items-center gap-2"
-              >
-                <Copy className="h-4 w-4" />
-                Share Message
-              </Button>
-              {isCreator && currentInstance && (
-                <>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => copyToClipboard(window.location.href)}
-                      className="flex items-center gap-2"
-                    >
-                      <Copy className="h-4 w-4" />
-                      Copy URL
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => copyToClipboard(currentInstance.password)}
-                      className="flex items-center gap-2"
-                    >
-                      <Copy className="h-4 w-4" />
-                      Copy Password
-                    </Button>
-                  </div>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" size="sm">Delete Instance</Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This action cannot be undone. This will permanently delete the instance
-                          and all associated data.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDeleteInstance}>
-                          Delete
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </>
-              )}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowShareDialog(true)}
+                  className="flex items-center gap-2"
+                >
+                  <Copy className="h-4 w-4" />
+                  Share Message
+                </Button>
+                {isCreator && currentInstance && (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => copyToClipboard(window.location.href)}
+                        className="flex items-center gap-2"
+                      >
+                        <Copy className="h-4 w-4" />
+                        Copy URL
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => copyToClipboard(currentInstance.password)}
+                        className="flex items-center gap-2"
+                      >
+                        <Copy className="h-4 w-4" />
+                        Copy Password
+                      </Button>
+                    </div>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm">Delete Instance</Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the instance
+                            and all associated data.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleDeleteInstance}>
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </>
+                )}
+              </div>
             </div>
           </div>
-
           {isLoading && users.length > 0 && (
-             <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-50">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500"></div>
-      </div>
+            <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-50">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500"></div>
+            </div>
           )}
-
-            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-              <div className="border-b border-gray-100 p-4 md:p-6">
+          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+            <div className="border-b border-gray-100 p-4 md:p-6">
               {selectedUser ? (
-                  <div className="flex items-center gap-3 mb-3">
+                <div className="flex items-center gap-3 mb-3">
                   <Avatar className={`h-10 w-10 ${getAvatarColor(selectedUser.name)}`}>
                     <AvatarFallback>{getInitials(selectedUser.name)}</AvatarFallback>
-                    </Avatar>
-                    <div>
+                  </Avatar>
+                  <div>
                     <h2 className="text-xl font-semibold">{selectedUser.name}</h2>
                     <p className="text-sm text-gray-600">Select your name to view and mark dates.</p>
-                    </div>
-                  <Button variant="outline" size="sm" className="ml-auto" onClick={() => setShowUserDialog(true)} disabled={isLoading}>Select user</Button>
                   </div>
-                ) : (
+                  <Button variant="outline" size="sm" className="ml-auto" onClick={() => setShowUserDialog(true)} disabled={isLoading}>Select user</Button>
+                </div>
+              ) : (
                 <p className="text-sm md:text-base text-gray-600">Select your name to view and mark dates.</p>
-                )}
-                <div className="flex flex-col md:flex-row md:items-center gap-2 text-sm text-gray-500">
+              )}
+              <div className="flex flex-col md:flex-row md:items-center gap-2 text-sm text-gray-500">
                 <div className="flex items-center gap-1"><Checkbox className="data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500" checked={true} disabled /><span>Available</span></div>
                 <div className="flex items-center gap-1"><Star className="h-4 w-4 fill-red-500 text-red-500" /><span>Favorite day</span></div>
-                </div>
               </div>
-
-              <Tabs defaultValue="availability" className="w-full">
-                <TabsList className="w-full border-b rounded-none bg-white px-4 md:px-6">
+            </div>
+            <Tabs defaultValue="availability" className="w-full">
+              <TabsList className="w-full border-b rounded-none bg-white px-4 md:px-6">
                 <TabsTrigger value="availability" className="flex-1 data-[state=active]:text-red-500">Availability</TabsTrigger>
                 <TabsTrigger value="chat" className="flex-1 data-[state=active]:text-red-500">Discuss here</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="availability" className="p-4 md:p-6">
+              </TabsList>
+              <TabsContent value="availability" className="p-4 md:p-6">
                 {selectedUser ? (
                   <>
                     <div className="mb-4">
@@ -1062,200 +1047,184 @@ Please add your availability and I'll coordinate the best time for everyone!`
                     )}
                     <div className="md:hidden mb-6">
                       {getSortedUsers(users, selectedUser.id).map((user) => {
-              <TabsContent value="availability" className="p-4 md:p-6">
-              {selectedUser ? (
-                <>
-                  <div className="mb-4">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox id="cant-attend" checked={responses[selectedUser.id]?.cantAttend || false} onCheckedChange={() => toggleCantAttend(selectedUser.id)} disabled={isLoading} className="data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500" />
-                      <label htmlFor="cant-attend" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">I cannot attend any of these days</label>
-                    </div>
-                  </div>
-                  {responses[selectedUser.id]?.cantAttend && (
-                    <Alert className="mb-6 bg-red-50 border-red-200"><AlertDescription className="flex items-center gap-2"><XCircle className="h-4 w-4 text-red-500" /><span>You have marked that you cannot attend.</span></AlertDescription></Alert>
-                  )}
-                  <div className="md:hidden mb-6">
-                    {getSortedUsers(users, selectedUser.id).map((user) => {
-                      const isCurrentUser = user.id === selectedUser.id;
-                      const cantAttend = responses[user.id]?.cantAttend;
-                      return (
-                        <div key={user.id} className={`mb-6 p-3 rounded-lg ${isCurrentUser ? "bg-white shadow-sm" : "bg-gray-50 border"}`}>
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-2">
-                              <Avatar className={`h-6 w-6 ${getAvatarColor(user.name)}`}><AvatarFallback>{getInitials(user.name)}</AvatarFallback></Avatar>
-                              <h3 className="font-medium">{user.name}</h3>
-                              {isCurrentUser && <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full">Du</span>}
-                            </div>
-                            {isCurrentUser && !cantAttend && (
-                              <div className="flex gap-2">
-                                <Button size="sm" variant="outline" className="flex items-center gap-1" onClick={() => setAllAvailability(user.id, true)} disabled={isLoading}><PlusCircle className="h-4 w-4 text-green-500" /><span>All</span></Button>
-                                <Button size="sm" variant="outline" className="flex items-center gap-1" onClick={() => setAllAvailability(user.id, false)} disabled={isLoading}><MinusCircle className="h-4 w-4 text-red-500" /><span>None</span></Button>
-                          </div>
-                            )}
-                                  </div>
-                          <div className="grid grid-cols-3 gap-2">
-                            {dateRange.map((date) => {
-                              const dateKey = date.toISOString();
-                              const isAvailable = availability[user.id]?.[dateKey];
-                              const isFavored = favoredDays[user.id]?.[dateKey];
-                              return (
-                                <div key={`${user.id}-${dateKey}-mobile`} className="flex flex-col items-center border rounded-lg p-2">
-                                  <div className="text-xs font-medium text-gray-500">{formatWeekdayMobile(date)}</div>
-                                  <div className="text-sm mb-1">{formatDateMobile(date)}</div>
-                                  <div className="flex flex-col items-center gap-1">
-                                    {cantAttend && !isCurrentUser ? (
-                                        <XCircle className="h-4 w-4 text-gray-300" />
-                                    ) : cantAttend && isCurrentUser ? (
-                                      <XCircle className="h-4 w-4 text-red-300" />
-                                    ) : (
-                                      <>
-                                        <Checkbox checked={isAvailable} onCheckedChange={() => { toggleAvailability(user.id, dateKey); if (isAvailable && isFavored) toggleFavored(user.id, dateKey);}} className="data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500 h-5 w-5" disabled={!isCurrentUser || isLoading} />
-                                        <button onClick={() => toggleFavored(user.id, dateKey)} disabled={!isAvailable || !isCurrentUser || isLoading} className={`flex items-center justify-center h-6 w-6 rounded-full ${!isAvailable || !isCurrentUser ? "opacity-30 cursor-not-allowed" : "cursor-pointer"}`}>
-                                          <Star className={`h-5 w-5 ${isFavored && isAvailable ? "fill-red-500 text-red-500" : "text-gray-400"}`} />
-                                        </button>
-                                      </>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="hidden md:block overflow-x-auto">
-                    <table className="w-full table-auto border-collapse">
-                      <thead>
-                        <tr>
-                          <th className="text-left p-2 font-medium text-gray-500 border-b">Participants</th>
-                          <th className="text-center p-2 font-medium text-gray-500 border-b">Actions</th>
-                          {dateRange.map((date) => (
-                            <th key={date.toISOString()} className="text-center p-2 font-medium text-gray-500 border-b">
-                              <div className="text-center">
-                                <div className="text-xs font-medium text-gray-500">{date.toLocaleDateString("sv-SE", { weekday: "short" })}</div>
-                                <div className="text-sm">{date.toLocaleDateString("sv-SE", { day: "numeric", month: "numeric" })}</div>
+                        const isCurrentUser = user.id === selectedUser.id;
+                        const cantAttend = responses[user.id]?.cantAttend;
+                        return (
+                          <div key={user.id} className={`mb-6 p-3 rounded-lg ${isCurrentUser ? "bg-white shadow-sm" : "bg-gray-50 border"}`}>
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <Avatar className={`h-6 w-6 ${getAvatarColor(user.name)}`}><AvatarFallback>{getInitials(user.name)}</AvatarFallback></Avatar>
+                                <h3 className="font-medium">{user.name}</h3>
+                                {isCurrentUser && <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full">Du</span>}
                               </div>
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {getSortedUsers(users, selectedUser.id).map((user) => {
-                          const isCurrentUser = user.id === selectedUser.id;
-                          const cantAttend = responses[user.id]?.cantAttend;
-                          return (
-                            <tr key={user.id} className={`border-b border-gray-100 ${isCurrentUser ? "bg-white" : "bg-gray-50"}`}>
-                              <td className="p-2 font-medium text-left">
-                                <div className="flex items-center gap-2">
-                                  <Avatar className={`h-6 w-6 ${getAvatarColor(user.name)}`}><AvatarFallback>{getInitials(user.name)}</AvatarFallback></Avatar>
-                                  {user.name}
-                                  {isCurrentUser && <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full">Du</span>}
-                                  </div>
-                              </td>
-                              <td className="p-2 text-center">
-                                {!cantAttend && (
-                                  <div className="flex justify-center gap-2">
-                                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setAllAvailability(user.id, true)} disabled={!isCurrentUser || isLoading}><PlusCircle className={`h-4 w-4 ${isCurrentUser ? "text-green-500" : "text-gray-300"}`} /><span className="sr-only">Mark all</span></Button>
-                                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setAllAvailability(user.id, false)} disabled={!isCurrentUser || isLoading}><MinusCircle className={`h-4 w-4 ${isCurrentUser ? "text-red-500" : "text-gray-300"}`} /><span className="sr-only">Unmark all</span></Button>
+                              {isCurrentUser && !cantAttend && (
+                                <div className="flex gap-2">
+                                  <Button size="sm" variant="outline" className="flex items-center gap-1" onClick={() => setAllAvailability(user.id, true)} disabled={isLoading}><PlusCircle className="h-4 w-4 text-green-500" /><span>All</span></Button>
+                                  <Button size="sm" variant="outline" className="flex items-center gap-1" onClick={() => setAllAvailability(user.id, false)} disabled={isLoading}><MinusCircle className="h-4 w-4 text-red-500" /><span>None</span></Button>
                                 </div>
-                                )}
-                              </td>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-3 gap-2">
                               {dateRange.map((date) => {
                                 const dateKey = date.toISOString();
                                 const isAvailable = availability[user.id]?.[dateKey];
                                 const isFavored = favoredDays[user.id]?.[dateKey];
                                 return (
-                                  <td key={`${user.id}-${dateKey}`} className="p-2 text-center">
-                                    {cantAttend && !isCurrentUser ? (
-                                        <XCircle className="h-4 w-4 text-gray-300 mx-auto" />
-                                    ) : cantAttend && isCurrentUser ? (
-                                      <XCircle className="h-4 w-4 text-red-300 mx-auto" />
-                                    ) : (
-                                      <div className="flex flex-col items-center">
-                                        <Checkbox checked={isAvailable} onCheckedChange={() => { toggleAvailability(user.id, dateKey); if (isAvailable && isFavored) toggleFavored(user.id, dateKey);}} className={`data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500 ${!isCurrentUser ? "opacity-60" : ""}`} disabled={!isCurrentUser || isLoading} />
-                                        <button onClick={() => toggleFavored(user.id, dateKey)} disabled={!isAvailable || !isCurrentUser || isLoading} className={`flex items-center justify-center h-6 w-6 rounded-full ${!isAvailable || !isCurrentUser ? "opacity-30 cursor-not-allowed" : "cursor-pointer"}`}>
-                                          <Star className={`h-5 w-5 ${isFavored && isAvailable ? "fill-red-500 text-red-500" : "text-gray-400"}`} />
-                                        </button>
-                                      </div>
-                                    )}
-                                  </td>
+                                  <div key={`${user.id}-${dateKey}-mobile`} className="flex flex-col items-center border rounded-lg p-2">
+                                    <div className="text-xs font-medium text-gray-500">{formatWeekdayMobile(date)}</div>
+                                    <div className="text-sm mb-1">{formatDateMobile(date)}</div>
+                                    <div className="flex flex-col items-center gap-1">
+                                      {cantAttend && !isCurrentUser ? (
+                                        <XCircle className="h-4 w-4 text-gray-300" />
+                                      ) : cantAttend && isCurrentUser ? (
+                                        <XCircle className="h-4 w-4 text-red-300" />
+                                      ) : (
+                                        <>
+                                          <Checkbox checked={isAvailable} onCheckedChange={() => { toggleAvailability(user.id, dateKey); if (isAvailable && isFavored) toggleFavored(user.id, dateKey);}} className="data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500 h-5 w-5" disabled={!isCurrentUser || isLoading} />
+                                          <button onClick={() => toggleFavored(user.id, dateKey)} disabled={!isAvailable || !isCurrentUser || isLoading} className={`flex items-center justify-center h-6 w-6 rounded-full ${!isAvailable || !isCurrentUser ? "opacity-30 cursor-not-allowed" : "cursor-pointer"}`}>
+                                            <Star className={`h-5 w-5 ${isFavored && isAvailable ? "fill-red-500 text-red-500" : "text-gray-400"}`} />
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
                                 );
                               })}
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              ) : (
-                <p className="text-gray-500">Select a user to view availability.</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="hidden md:block overflow-x-auto">
+                      <table className="w-full table-auto border-collapse">
+                        <thead>
+                          <tr>
+                            <th className="text-left p-2 font-medium text-gray-500 border-b">Participants</th>
+                            <th className="text-center p-2 font-medium text-gray-500 border-b">Actions</th>
+                            {dateRange.map((date) => (
+                              <th key={date.toISOString()} className="text-center p-2 font-medium text-gray-500 border-b">
+                                <div className="text-center">
+                                  <div className="text-xs font-medium text-gray-500">{date.toLocaleDateString("sv-SE", { weekday: "short" })}</div>
+                                  <div className="text-sm">{date.toLocaleDateString("sv-SE", { day: "numeric", month: "numeric" })}</div>
+                                </div>
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {getSortedUsers(users, selectedUser.id).map((user) => {
+                            const isCurrentUser = user.id === selectedUser.id;
+                            const cantAttend = responses[user.id]?.cantAttend;
+                            return (
+                              <tr key={user.id} className={`border-b border-gray-100 ${isCurrentUser ? "bg-white" : "bg-gray-50"}`}>
+                                <td className="p-2 font-medium text-left">
+                                  <div className="flex items-center gap-2">
+                                    <Avatar className={`h-6 w-6 ${getAvatarColor(user.name)}`}><AvatarFallback>{getInitials(user.name)}</AvatarFallback></Avatar>
+                                    {user.name}
+                                    {isCurrentUser && <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full">Du</span>}
+                                  </div>
+                                </td>
+                                <td className="p-2 text-center">
+                                  {!cantAttend && (
+                                    <div className="flex justify-center gap-2">
+                                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setAllAvailability(user.id, true)} disabled={!isCurrentUser || isLoading}><PlusCircle className={`h-4 w-4 ${isCurrentUser ? "text-green-500" : "text-gray-300"}`} /><span className="sr-only">Mark all</span></Button>
+                                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setAllAvailability(user.id, false)} disabled={!isCurrentUser || isLoading}><MinusCircle className={`h-4 w-4 ${isCurrentUser ? "text-red-500" : "text-gray-300"}`} /><span className="sr-only">Unmark all</span></Button>
+                                    </div>
+                                  )}
+                                </td>
+                                {dateRange.map((date) => {
+                                  const dateKey = date.toISOString();
+                                  const isAvailable = availability[user.id]?.[dateKey];
+                                  const isFavored = favoredDays[user.id]?.[dateKey];
+                                  return (
+                                    <td key={`${user.id}-${dateKey}`} className="p-2 text-center">
+                                      {cantAttend && !isCurrentUser ? (
+                                        <XCircle className="h-4 w-4 text-gray-300 mx-auto" />
+                                      ) : cantAttend && isCurrentUser ? (
+                                        <XCircle className="h-4 w-4 text-red-300 mx-auto" />
+                                      ) : (
+                                        <div className="flex flex-col items-center">
+                                          <Checkbox checked={isAvailable} onCheckedChange={() => { toggleAvailability(user.id, dateKey); if (isAvailable && isFavored) toggleFavored(user.id, dateKey);}} className={`data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500 ${!isCurrentUser ? "opacity-60" : ""}`} disabled={!isCurrentUser || isLoading} />
+                                          <button onClick={() => toggleFavored(user.id, dateKey)} disabled={!isAvailable || !isCurrentUser || isLoading} className={`flex items-center justify-center h-6 w-6 rounded-full ${!isAvailable || !isCurrentUser ? "opacity-30 cursor-not-allowed" : "cursor-pointer"}`}>
+                                            <Star className={`h-5 w-5 ${isFavored && isAvailable ? "fill-red-500 text-red-500" : "text-gray-400"}`} />
+                                          </button>
+                                        </div>
+                                      )}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-gray-500">Select a user to view availability.</p>
                 )}
               </TabsContent>
-
               <TabsContent value="chat" className="p-4 md:p-6">
-              {selectedUser ? (
-                <div className="flex flex-col h-[500px]">
-                  <div className="flex-1 overflow-y-auto mb-4 space-y-2">
-                    {messages.map((message) => (
-                      <div key={message.id} className={`flex ${message.user_id === selectedUser.id ? "justify-end" : "justify-start"}`}>
-                        <div className={`p-2 rounded-lg w-fit max-w-[80%] ${message.user_id === selectedUser.id ? "bg-red-100 text-gray-800" : "bg-gray-100 text-gray-800"}`}>
-                          <div className="text-xs text-gray-500">{message.sender}</div>
-                          <div>{message.content}</div>
-                          <div className="text-xs text-gray-500 text-right">{formatMessageTime(message.created_at)}</div>
+                {selectedUser ? (
+                  <div className="flex flex-col h-[500px]">
+                    <div className="flex-1 overflow-y-auto mb-4 space-y-2">
+                      {messages.map((message) => (
+                        <div key={message.id} className={`flex ${message.user_id === selectedUser.id ? "justify-end" : "justify-start"}`}>
+                          <div className={`p-2 rounded-lg w-fit max-w-[80%] ${message.user_id === selectedUser.id ? "bg-red-100 text-gray-800" : "bg-gray-100 text-gray-800"}`}>
+                            <div className="text-xs text-gray-500">{message.sender}</div>
+                            <div>{message.content}</div>
+                            <div className="text-xs text-gray-500 text-right">{formatMessageTime(message.created_at)}</div>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                    <div ref={messagesEndRef} />
+                      ))}
+                      <div ref={messagesEndRef} />
+                    </div>
+                    <div className="flex items-center">
+                      <Input type="text" className="flex-1 border rounded-lg py-2 px-3 mr-2 focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="Type a message..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") handleSendMessage();}} />
+                      <Button onClick={handleSendMessage} disabled={isLoading || newMessage.trim() === ''}>Send</Button>
+                    </div>
                   </div>
-                  <div className="flex items-center">
-                    <Input type="text" className="flex-1 border rounded-lg py-2 px-3 mr-2 focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="Type a message..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") handleSendMessage();}} />
-                    <Button onClick={handleSendMessage} disabled={isLoading || newMessage.trim() === ''}>Send</Button>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-gray-500">Select a user to start chatting.</p>
-              )}
+                ) : (
+                  <p className="text-gray-500">Select a user to start chatting.</p>
+                )}
               </TabsContent>
             </Tabs>
           </div>
-
-        <div className="mt-8">
-          <h2 className="text-xl font-semibold mb-4">Suggested best days</h2>
-          {getCantAttendUsers().length > 0 && (
-            <Alert className="mb-4 bg-yellow-50 border-yellow-200"><AlertDescription className="flex items-center gap-2"><XCircle className="h-4 w-4 text-yellow-500" /><span>{getCantAttendUsers().map(user => user.name).join(", ")} cannot attend.</span></AlertDescription></Alert>
-          )}
-          {getBestDays().length > 0 ? (
-            <div className="space-y-4">
-              {getBestDays().map((group, groupIndex) => (
-                <div key={`group-${groupIndex}`} className="p-4 md:p-5 bg-white rounded-lg border border-gray-100">
-                  <div className="flex items-center gap-2 mb-2">
-                    {groupIndex === 0 ? (<span className="text-sm font-medium bg-green-100 text-green-800 px-2 py-0.5 rounded-full">Best option</span>) 
-                    : groupIndex === 1 ? (<span className="text-sm font-medium bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">Second best</span>)
-                    : (<span className="text-sm font-medium bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full">Third best</span>)}
+          <div className="mt-8">
+            <h2 className="text-xl font-semibold mb-4">Suggested best days</h2>
+            {getCantAttendUsers().length > 0 && (
+              <Alert className="mb-4 bg-yellow-50 border-yellow-200"><AlertDescription className="flex items-center gap-2"><XCircle className="h-4 w-4 text-yellow-500" /><span>{getCantAttendUsers().map(user => user.name).join(", ")} cannot attend.</span></AlertDescription></Alert>
+            )}
+            {getBestDays().length > 0 ? (
+              <div className="space-y-4">
+                {getBestDays().map((group, groupIndex) => (
+                  <div key={`group-${groupIndex}`} className="p-4 md:p-5 bg-white rounded-lg border border-gray-100">
+                    <div className="flex items-center gap-2 mb-2">
+                      {groupIndex === 0 ? (<span className="text-sm font-medium bg-green-100 text-green-800 px-2 py-0.5 rounded-full">Best option</span>) 
+                      : groupIndex === 1 ? (<span className="text-sm font-medium bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">Second best</span>)
+                      : (<span className="text-sm font-medium bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full">Third best</span>)}
+                    </div>
+                    <div className="space-y-2">
+                      {group.days.map(({ date, availableCount, favoredCount, respondedCount }) => (
+                        <div key={date.toISOString()} className="flex flex-col md:flex-row md:items-center md:justify-between bg-white p-3 rounded-md shadow-sm border border-gray-100">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{date.toLocaleDateString("sv-SE", { weekday: isMobile ? "short" : "long", day: "numeric", month: isMobile ? "numeric" : "long" })}</span>
+                            <div className="flex items-center gap-1 bg-red-50 text-red-500 px-2 py-0.5 rounded-full text-xs"><Star className="h-3 w-3 fill-red-500 text-red-500" /><span>{favoredCount}</span></div>
+                          </div>
+                          <div className="flex items-center gap-1 mt-1 md:mt-0">
+                            <Users className="h-4 w-4 text-gray-400" /><span className="text-sm text-gray-600">{availableCount} of {users.length} available ({respondedCount} have responded)</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
-                  <div className="space-y-2">
-                    {group.days.map(({ date, availableCount, favoredCount, respondedCount }) => (
-                      <div key={date.toISOString()} className="flex flex-col md:flex-row md:items-center md:justify-between bg-white p-3 rounded-md shadow-sm border border-gray-100">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{date.toLocaleDateString("sv-SE", { weekday: isMobile ? "short" : "long", day: "numeric", month: isMobile ? "numeric" : "long" })}</span>
-                          <div className="flex items-center gap-1 bg-red-50 text-red-500 px-2 py-0.5 rounded-full text-xs"><Star className="h-3 w-3 fill-red-500 text-red-500" /><span>{favoredCount}</span></div>
-            </div>
-                        <div className="flex items-center gap-1 mt-1 md:mt-0">
-                          <Users className="h-4 w-4 text-gray-400" /><span className="text-sm text-gray-600">{availableCount} of {users.length} available ({respondedCount} have responded)</span>
+            ) : (
+              <p>No suggested best days could be found based on current selections.</p>
+            )}
           </div>
         </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p>No suggested best days could be found based on current selections.</p>
-          )}
-        </div>
       </div>
-    </div>
-  )
+    );
 } 
