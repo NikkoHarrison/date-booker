@@ -21,7 +21,6 @@ import {
 interface User {
   id: string
   name: string
-  email?: string
 }
 
 interface FormData {
@@ -29,7 +28,6 @@ interface FormData {
   password: string
   users: User[]
   newUserName: string
-  newUserEmail: string
   startDate: Date | null
   endDate: Date | null
 }
@@ -74,7 +72,6 @@ export default function NewInstance() {
     password: "",
     users: [],
     newUserName: "",
-    newUserEmail: "",
     startDate: null,
     endDate: null,
   })
@@ -101,14 +98,12 @@ export default function NewInstance() {
     const newUser: User = {
       id: crypto.randomUUID(),
       name: formData.newUserName.trim(),
-      email: formData.newUserEmail.trim() || undefined,
     }
 
     setFormData((prev) => ({
       ...prev,
       users: [...prev.users, newUser],
       newUserName: "",
-      newUserEmail: "",
     }))
   }
 
@@ -267,25 +262,12 @@ export default function NewInstance() {
                   Press Enter or click "Add Participant" to add this user
                 </p>
               )}
-              <Input
-                placeholder="Enter participant email (optional)"
-                type="email"
-                value={formData.newUserEmail}
-                onChange={(e) => setFormData(prev => ({ ...prev, newUserEmail: e.target.value }))}
-                disabled={isLoading}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault()
-                    addUser()
-                  }
-                }}
-              />
               <Button
                 type="button"
                 variant="outline"
                 onClick={addUser}
                 disabled={isLoading || !formData.newUserName.trim()}
-                className="w-full"
+                className="w-full bg-red-500 hover:bg-red-600 text-white border-red-500 hover:border-red-600"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Participant
@@ -296,9 +278,6 @@ export default function NewInstance() {
                 <div key={user.id} className="flex items-center justify-between bg-gray-50 p-2 rounded-md">
                   <div className="flex flex-col">
                     <span>{user.name}</span>
-                    {user.email && (
-                      <span className="text-sm text-gray-500">{user.email}</span>
-                    )}
                   </div>
                   <Button
                     type="button"
@@ -315,9 +294,46 @@ export default function NewInstance() {
           </div>
         </div>
 
-        <Button type="submit" className="w-full" disabled={isLoading}>
+        {error && (
+          <div className="text-red-500 text-sm">{error}</div>
+        )}
+
+        <Button 
+          type="submit" 
+          className="w-full bg-green-500 hover:bg-green-600 text-white border-green-500 hover:border-green-600" 
+          disabled={isLoading || formData.users.length < 2}
+        >
           {isLoading ? "Creating..." : "Create Date Picker"}
         </Button>
+
+        {formData.users.length < 2 && (
+          <p className="text-sm text-gray-500 text-center">
+            Please add at least 2 participants to create a date picker
+          </p>
+        )}
+
+        <div className="mt-8 border-t pt-6">
+          <h2 className="text-lg font-semibold mb-4">Copy this message!</h2>
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <p className={cn(
+              "text-sm transition-colors whitespace-pre-line",
+              formData.name ? "text-black" : "text-gray-400"
+            )}>
+              {formData.name ? (
+                `Hey! I've created a date picker for us to find the best time to meet.
+
+You can access it here:
+https://date-booker.vercel.app/${generateSlug(formData.name)}
+
+Password: ${formData.password}
+
+Please add your availability and I'll coordinate the best time for everyone!`
+              ) : (
+                "Your message will appear here once you enter a name and password"
+              )}
+            </p>
+          </div>
+        </div>
       </form>
     </div>
   )

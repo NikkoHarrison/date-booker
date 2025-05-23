@@ -69,9 +69,9 @@ function UserSelectionDialog({ isOpen, onClose, onUserSelect, users, instancePas
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Select Your Name</DialogTitle>
+          <DialogTitle>Welcome to the Date Picker!</DialogTitle>
           <DialogDescription>
-            Choose your name from the list and enter the password to continue.
+            To get started, select your name from the list below and enter the password to mark your availability.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -122,6 +122,7 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
   const [users, setUsers] = useState<User[]>([])
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [showUserDialog, setShowUserDialog] = useState(false)
+  const [showShareDialog, setShowShareDialog] = useState(false)
   const [instancePassword, setInstancePassword] = useState<string>("")
   const [userMap, setUserMap] = useState<Map<string, string>>(new Map())
   const [isCreator, setIsCreator] = useState(false)
@@ -892,116 +893,186 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
     <div className="min-h-screen bg-[#f9f5f3] flex items-center justify-center">
         <div className="bg-white rounded-lg shadow-sm p-8 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto mb-4"></div>
-            <p className="text-gray-500">Laddar data...</p>
+            <p className="text-gray-500">Loading data...</p>
         </div>
       </div>
     )
 
     return (
-    <div className="min-h-screen bg-[#f9f5f3]">
-      {isHydrated && (
-        <UserSelectionDialog
-          isOpen={showUserDialog}
-          onClose={() => setShowUserDialog(false)}
-          onUserSelect={handleUserSelect}
-          users={users}
-          instancePassword={instancePassword}
-        />
-      )}
-      <div className={`container mx-auto py-6 px-4 ${showUserDialog ? 'invisible' : ''}`}>
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl md:text-3xl font-bold">{currentInstance?.name || 'Date Picker'}</h1>
-          {isCreator && currentInstance && (
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => copyToClipboard(window.location.href)}
-                  className="flex items-center gap-2"
-                >
-                  <Copy className="h-4 w-4" />
-                  Copy URL
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => copyToClipboard(currentInstance.password)}
-                  className="flex items-center gap-2"
-                >
-                  <Copy className="h-4 w-4" />
-                  Copy Password
-                </Button>
-              </div>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive" size="sm">Delete Instance</Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This action cannot be undone. This will permanently delete the instance
-                      and all associated data.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDeleteInstance}>
-                      Delete
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          )}
-        </div>
+      <div className="min-h-screen bg-[#f9f5f3]">
+        {isHydrated && (
+          <>
+            <UserSelectionDialog
+              isOpen={showUserDialog}
+              onClose={() => setShowUserDialog(false)}
+              onUserSelect={handleUserSelect}
+              users={users}
+              instancePassword={instancePassword}
+            />
+            <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Share this date picker</DialogTitle>
+                  <DialogDescription>
+                    Copy this message to share with your participants
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <p className="text-sm whitespace-pre-line">
+                    {`Hey! I've created a date picker for us to find the best time to meet.
 
-        {isLoading && users.length > 0 && (
+You can access it here:
+https://date-booker.vercel.app/${instanceId}
+
+Password: ${instancePassword}
+
+Please add your availability and I'll coordinate the best time for everyone!`}
+                  </p>
+                </div>
+                <DialogFooter>
+                  <Button
+                    onClick={() => {
+                      const message = `Hey! I've created a date picker for us to find the best time to meet.
+
+You can access it here:
+https://date-booker.vercel.app/${instanceId}
+
+Password: ${instancePassword}
+
+Please add your availability and I'll coordinate the best time for everyone!`
+                      navigator.clipboard.writeText(message)
+                      toast({
+                        title: "Copied!",
+                        description: "Message copied to clipboard",
+                      })
+                    }}
+                  >
+                    Copy Message
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </>
+        )}
+        <div className={`container mx-auto py-6 px-4 ${showUserDialog ? 'invisible' : ''}`}>
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-2xl md:text-3xl font-bold">{currentInstance?.name || 'Date Picker'}</h1>
+            <div className="flex items-center gap-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowShareDialog(true)}
+                className="flex items-center gap-2"
+              >
+                <Copy className="h-4 w-4" />
+                Share Message
+              </Button>
+              {isCreator && currentInstance && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copyToClipboard(window.location.href)}
+                      className="flex items-center gap-2"
+                    >
+                      <Copy className="h-4 w-4" />
+                      Copy URL
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copyToClipboard(currentInstance.password)}
+                      className="flex items-center gap-2"
+                    >
+                      <Copy className="h-4 w-4" />
+                      Copy Password
+                    </Button>
+                  </div>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" size="sm">Delete Instance</Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete the instance
+                          and all associated data.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeleteInstance}>
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </>
+              )}
+            </div>
+          </div>
+
+          {isLoading && users.length > 0 && (
              <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-50">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500"></div>
       </div>
-        )}
+          )}
 
-          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            <div className="border-b border-gray-100 p-4 md:p-6">
-            {selectedUser ? (
-                <div className="flex items-center gap-3 mb-3">
-                <Avatar className={`h-10 w-10 ${getAvatarColor(selectedUser.name)}`}>
-                  <AvatarFallback>{getInitials(selectedUser.name)}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                  <h2 className="text-xl font-semibold">{selectedUser.name}</h2>
-                  <p className="text-sm text-gray-600">Välj vilka dagar som passar för dig</p>
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+              <div className="border-b border-gray-100 p-4 md:p-6">
+              {selectedUser ? (
+                  <div className="flex items-center gap-3 mb-3">
+                  <Avatar className={`h-10 w-10 ${getAvatarColor(selectedUser.name)}`}>
+                    <AvatarFallback>{getInitials(selectedUser.name)}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                    <h2 className="text-xl font-semibold">{selectedUser.name}</h2>
+                    <p className="text-sm text-gray-600">Select your name to view and mark dates.</p>
+                    </div>
+                  <Button variant="outline" size="sm" className="ml-auto" onClick={() => setShowUserDialog(true)} disabled={isLoading}>Select user</Button>
                   </div>
-                <Button variant="outline" size="sm" className="ml-auto" onClick={() => setShowUserDialog(true)} disabled={isLoading}>Välj användare</Button>
+                ) : (
+                <p className="text-sm md:text-base text-gray-600">Select your name to view and mark dates.</p>
+                )}
+                <div className="flex flex-col md:flex-row md:items-center gap-2 text-sm text-gray-500">
+                <div className="flex items-center gap-1"><Checkbox className="data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500" checked={true} disabled /><span>Available</span></div>
+                <div className="flex items-center gap-1"><Star className="h-4 w-4 fill-red-500 text-red-500" /><span>Favorite day</span></div>
                 </div>
-              ) : (
-              <p className="text-sm md:text-base text-gray-600">Välj ditt namn för att se och markera dagar.</p>
-              )}
-              <div className="flex flex-col md:flex-row md:items-center gap-2 text-sm text-gray-500">
-              <div className="flex items-center gap-1"><Checkbox className="data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500" checked={true} disabled /><span>Tillgänglig</span></div>
-              <div className="flex items-center gap-1"><Star className="h-4 w-4 fill-red-500 text-red-500" /><span>Favoritdag</span></div>
               </div>
-            </div>
 
-            <Tabs defaultValue="availability" className="w-full">
-              <TabsList className="w-full border-b rounded-none bg-white px-4 md:px-6">
-              <TabsTrigger value="availability" className="flex-1 data-[state=active]:text-red-500">Tillgänglighet</TabsTrigger>
-              <TabsTrigger value="chat" className="flex-1 data-[state=active]:text-red-500">Diskutera här</TabsTrigger>
-              </TabsList>
+              <Tabs defaultValue="availability" className="w-full">
+                <TabsList className="w-full border-b rounded-none bg-white px-4 md:px-6">
+                <TabsTrigger value="availability" className="flex-1 data-[state=active]:text-red-500">Availability</TabsTrigger>
+                <TabsTrigger value="chat" className="flex-1 data-[state=active]:text-red-500">Discuss here</TabsTrigger>
+                </TabsList>
 
+                <TabsContent value="availability" className="p-4 md:p-6">
+                {selectedUser ? (
+                  <>
+                    <div className="mb-4">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox id="cant-attend" checked={responses[selectedUser.id]?.cantAttend || false} onCheckedChange={() => toggleCantAttend(selectedUser.id)} disabled={isLoading} className="data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500" />
+                        <label htmlFor="cant-attend" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">I cannot attend any of these days</label>
+                      </div>
+                    </div>
+                    {responses[selectedUser.id]?.cantAttend && (
+                      <Alert className="mb-6 bg-red-50 border-red-200"><AlertDescription className="flex items-center gap-2"><XCircle className="h-4 w-4 text-red-500" /><span>You have marked that you cannot attend.</span></AlertDescription></Alert>
+                    )}
+                    <div className="md:hidden mb-6">
+                      {getSortedUsers(users, selectedUser.id).map((user) => {
               <TabsContent value="availability" className="p-4 md:p-6">
               {selectedUser ? (
                 <>
                   <div className="mb-4">
                     <div className="flex items-center space-x-2">
                       <Checkbox id="cant-attend" checked={responses[selectedUser.id]?.cantAttend || false} onCheckedChange={() => toggleCantAttend(selectedUser.id)} disabled={isLoading} className="data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500" />
-                      <label htmlFor="cant-attend" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Jag kan inte delta någon av dessa dagar</label>
+                      <label htmlFor="cant-attend" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">I cannot attend any of these days</label>
                     </div>
                   </div>
                   {responses[selectedUser.id]?.cantAttend && (
-                    <Alert className="mb-6 bg-red-50 border-red-200"><AlertDescription className="flex items-center gap-2"><XCircle className="h-4 w-4 text-red-500" /><span>Du har markerat att du inte kan delta.</span></AlertDescription></Alert>
+                    <Alert className="mb-6 bg-red-50 border-red-200"><AlertDescription className="flex items-center gap-2"><XCircle className="h-4 w-4 text-red-500" /><span>You have marked that you cannot attend.</span></AlertDescription></Alert>
                   )}
                   <div className="md:hidden mb-6">
                     {getSortedUsers(users, selectedUser.id).map((user) => {
@@ -1017,8 +1088,8 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
                             </div>
                             {isCurrentUser && !cantAttend && (
                               <div className="flex gap-2">
-                                <Button size="sm" variant="outline" className="flex items-center gap-1" onClick={() => setAllAvailability(user.id, true)} disabled={isLoading}><PlusCircle className="h-4 w-4 text-green-500" /><span>Alla</span></Button>
-                                <Button size="sm" variant="outline" className="flex items-center gap-1" onClick={() => setAllAvailability(user.id, false)} disabled={isLoading}><MinusCircle className="h-4 w-4 text-red-500" /><span>Inga</span></Button>
+                                <Button size="sm" variant="outline" className="flex items-center gap-1" onClick={() => setAllAvailability(user.id, true)} disabled={isLoading}><PlusCircle className="h-4 w-4 text-green-500" /><span>All</span></Button>
+                                <Button size="sm" variant="outline" className="flex items-center gap-1" onClick={() => setAllAvailability(user.id, false)} disabled={isLoading}><MinusCircle className="h-4 w-4 text-red-500" /><span>None</span></Button>
                           </div>
                             )}
                                   </div>
@@ -1057,8 +1128,8 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
                     <table className="w-full table-auto border-collapse">
                       <thead>
                         <tr>
-                          <th className="text-left p-2 font-medium text-gray-500 border-b">Deltagare</th>
-                          <th className="text-center p-2 font-medium text-gray-500 border-b">Åtgärder</th>
+                          <th className="text-left p-2 font-medium text-gray-500 border-b">Participants</th>
+                          <th className="text-center p-2 font-medium text-gray-500 border-b">Actions</th>
                           {dateRange.map((date) => (
                             <th key={date.toISOString()} className="text-center p-2 font-medium text-gray-500 border-b">
                               <div className="text-center">
@@ -1085,8 +1156,8 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
                               <td className="p-2 text-center">
                                 {!cantAttend && (
                                   <div className="flex justify-center gap-2">
-                                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setAllAvailability(user.id, true)} disabled={!isCurrentUser || isLoading}><PlusCircle className={`h-4 w-4 ${isCurrentUser ? "text-green-500" : "text-gray-300"}`} /><span className="sr-only">Markera alla</span></Button>
-                                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setAllAvailability(user.id, false)} disabled={!isCurrentUser || isLoading}><MinusCircle className={`h-4 w-4 ${isCurrentUser ? "text-red-500" : "text-gray-300"}`} /><span className="sr-only">Avmarkera alla</span></Button>
+                                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setAllAvailability(user.id, true)} disabled={!isCurrentUser || isLoading}><PlusCircle className={`h-4 w-4 ${isCurrentUser ? "text-green-500" : "text-gray-300"}`} /><span className="sr-only">Mark all</span></Button>
+                                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setAllAvailability(user.id, false)} disabled={!isCurrentUser || isLoading}><MinusCircle className={`h-4 w-4 ${isCurrentUser ? "text-red-500" : "text-gray-300"}`} /><span className="sr-only">Unmark all</span></Button>
                                 </div>
                                 )}
                               </td>
@@ -1119,7 +1190,7 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
                   </div>
                 </>
               ) : (
-                <p className="text-gray-500">Välj en användare för att visa tillgänglighet.</p>
+                <p className="text-gray-500">Select a user to view availability.</p>
                 )}
               </TabsContent>
 
@@ -1139,30 +1210,30 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
                     <div ref={messagesEndRef} />
                   </div>
                   <div className="flex items-center">
-                    <Input type="text" className="flex-1 border rounded-lg py-2 px-3 mr-2 focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="Skriv ett meddelande..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") handleSendMessage();}} />
-                    <Button onClick={handleSendMessage} disabled={isLoading || newMessage.trim() === ''}>Skicka</Button>
+                    <Input type="text" className="flex-1 border rounded-lg py-2 px-3 mr-2 focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="Type a message..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") handleSendMessage();}} />
+                    <Button onClick={handleSendMessage} disabled={isLoading || newMessage.trim() === ''}>Send</Button>
                   </div>
                 </div>
               ) : (
-                <p className="text-gray-500">Välj en användare för att starta chatten.</p>
+                <p className="text-gray-500">Select a user to start chatting.</p>
               )}
               </TabsContent>
             </Tabs>
           </div>
 
         <div className="mt-8">
-          <h2 className="text-xl font-semibold mb-4">Förslag på bästa dagar</h2>
+          <h2 className="text-xl font-semibold mb-4">Suggested best days</h2>
           {getCantAttendUsers().length > 0 && (
-            <Alert className="mb-4 bg-yellow-50 border-yellow-200"><AlertDescription className="flex items-center gap-2"><XCircle className="h-4 w-4 text-yellow-500" /><span>{getCantAttendUsers().map(user => user.name).join(", ")} kan inte delta.</span></AlertDescription></Alert>
+            <Alert className="mb-4 bg-yellow-50 border-yellow-200"><AlertDescription className="flex items-center gap-2"><XCircle className="h-4 w-4 text-yellow-500" /><span>{getCantAttendUsers().map(user => user.name).join(", ")} cannot attend.</span></AlertDescription></Alert>
           )}
           {getBestDays().length > 0 ? (
             <div className="space-y-4">
               {getBestDays().map((group, groupIndex) => (
                 <div key={`group-${groupIndex}`} className="p-4 md:p-5 bg-white rounded-lg border border-gray-100">
                   <div className="flex items-center gap-2 mb-2">
-                    {groupIndex === 0 ? (<span className="text-sm font-medium bg-green-100 text-green-800 px-2 py-0.5 rounded-full">Bästa alternativet</span>) 
-                    : groupIndex === 1 ? (<span className="text-sm font-medium bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">Näst bästa</span>)
-                    : (<span className="text-sm font-medium bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full">Tredje bästa</span>)}
+                    {groupIndex === 0 ? (<span className="text-sm font-medium bg-green-100 text-green-800 px-2 py-0.5 rounded-full">Best option</span>) 
+                    : groupIndex === 1 ? (<span className="text-sm font-medium bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">Second best</span>)
+                    : (<span className="text-sm font-medium bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full">Third best</span>)}
               </div>
                   <div className="space-y-2">
                     {group.days.map(({ date, availableCount, favoredCount, respondedCount }) => (
@@ -1172,7 +1243,7 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
                           <div className="flex items-center gap-1 bg-red-50 text-red-500 px-2 py-0.5 rounded-full text-xs"><Star className="h-3 w-3 fill-red-500 text-red-500" /><span>{favoredCount}</span></div>
             </div>
                         <div className="flex items-center gap-1 mt-1 md:mt-0">
-                          <Users className="h-4 w-4 text-gray-400" /><span className="text-sm text-gray-600">{availableCount} av {users.length} tillgängliga ({respondedCount} har svarat)</span>
+                          <Users className="h-4 w-4 text-gray-400" /><span className="text-sm text-gray-600">{availableCount} of {users.length} available ({respondedCount} have responded)</span>
           </div>
         </div>
                     ))}
@@ -1181,7 +1252,7 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
               ))}
             </div>
           ) : (
-            <p>Inga förslag på bästa dagar kunde hittas baserat på nuvarande val.</p>
+            <p>No suggested best days could be found based on current selections.</p>
           )}
         </div>
       </div>
