@@ -1,5 +1,4 @@
 /** @type {import('next').NextConfig} */
-// Updated for Vercel deployment
 const nextConfig = {
   async redirects() {
     return [
