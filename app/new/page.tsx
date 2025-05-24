@@ -9,14 +9,13 @@ import { Plus, X, Calendar } from "lucide-react"
 import { cn, hashPassword } from "@/lib/utils"
 import { supabase } from "@/lib/supabase"
 import { toast } from "@/hooks/use-toast"
-import { DateRange } from "react-day-picker"
 import { format } from "date-fns"
-import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import CustomCalendar from "@/components/CustomCalendar"
 
 interface User {
   id: string
@@ -75,22 +74,18 @@ export default function NewInstance() {
     startDate: null,
     endDate: null,
   })
-  const [date, setDate] = useState<DateRange | undefined>({
-    from: new Date(),
-    to: new Date(new Date().setDate(new Date().getDate() + 30)),
-  })
+  const [startDate, setStartDate] = useState<Date | null>(new Date());
+  const [endDate, setEndDate] = useState<Date | null>(new Date(new Date().setDate(new Date().getDate() + 30)));
   const [error, setError] = useState<string | null>(null)
 
-  // Add useEffect to sync date range with formData
+  // Add useEffect to sync formData with startDate/endDate
   useEffect(() => {
-    if (date?.from && date?.to) {
-      setFormData(prev => ({
-        ...prev,
-        startDate: date.from || null,
-        endDate: date.to || null
-      }))
-    }
-  }, [date])
+    setFormData(prev => ({
+      ...prev,
+      startDate,
+      endDate
+    }))
+  }, [startDate, endDate])
 
   const addUser = () => {
     if (!formData.newUserName.trim()) return
@@ -209,18 +204,18 @@ export default function NewInstance() {
                   variant={"outline"}
                   className={cn(
                     "w-full justify-start text-left font-normal",
-                    !date && "text-muted-foreground"
+                    !startDate && "text-muted-foreground"
                   )}
                 >
                   <Calendar className="mr-2 h-4 w-4" />
-                  {date?.from ? (
-                    date.to ? (
+                  {startDate ? (
+                    endDate ? (
                       <>
-                        {format(date.from, "LLL dd, y")} -{" "}
-                        {format(date.to, "LLL dd, y")}
+                        {format(startDate, "LLL dd, y")} -{" "}
+                        {format(endDate, "LLL dd, y")}
                       </>
                     ) : (
-                      format(date.from, "LLL dd, y")
+                      format(startDate, "LLL dd, y")
                     )
                   ) : (
                     <span>Pick a date range</span>
@@ -228,13 +223,13 @@ export default function NewInstance() {
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
-                <CalendarComponent
-                  initialFocus
-                  mode="range"
-                  defaultMonth={date?.from}
-                  selected={date}
-                  onSelect={setDate}
-                  numberOfMonths={2}
+                <CustomCalendar
+                  startDate={startDate}
+                  endDate={endDate}
+                  onRangeChange={(start, end) => {
+                    setStartDate(start);
+                    setEndDate(end);
+                  }}
                 />
               </PopoverContent>
             </Popover>

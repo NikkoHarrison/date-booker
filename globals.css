@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --rdp-cell-size: 40px;
+  --rdp-accent-color: #E53E3E !important;
+  --rdp-background-color: #fee2e2 !important;
+  --rdp-range_middle-background-color: #fee2e2 !important;
+  --rdp-accent-color-dark: #E53E3E !important;
+  --rdp-background-color-dark: #fee2e2 !important;
+  --rdp-outline: 2px solid var(--rdp-accent-color) !important;
+  --rdp-outline-selected: 2px solid var(--rdp-accent-color) !important;
+}
+
 body {
   font-family: Arial, Helvetica, sans-serif;
 }
@@ -96,4 +107,78 @@ body {
 /* Add this to your globals.css file to hide the dialog close button */
 .dialog-no-close [data-radix-collection-item] {
   display: none !important;
+}
+
+/* Calendar styles */
+.rdp {
+  margin: 1em;
+}
+
+.rdp-months {
+  display: flex;
+}
+
+.rdp-month {
+  background-color: white;
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.rdp-day_selected,
+.rdp-day_selected:focus-visible,
+.rdp-day_selected:hover {
+  color: white;
+  background-color: var(--rdp-accent-color);
+}
+
+.rdp-day_range_start,
+.rdp-day_range_end {
+  color: white;
+  background-color: var(--rdp-accent-color);
+}
+
+.rdp-day_range_middle {
+  background-color: var(--rdp-background-color);
+  color: var(--rdp-accent-color);
+}
+
+.rdp-day_range_middle:hover {
+  background-color: var(--rdp-background-color);
+}
+
+.rdp-button:hover:not([disabled]):not(.rdp-day_selected) {
+  background-color: var(--rdp-background-color);
+}
+
+.rdp-nav_button:hover {
+  background-color: var(--rdp-background-color);
+}
+
+.rdp-nav_button:focus-visible {
+  outline: var(--rdp-outline);
+}
+
+/* Calendar range styles for red theme */
+.rdp-range_end .rdp-day_button,
+.rdp-range_start .rdp-day_button {
+  background-color: var(--rdp-accent-color) !important;
+  color: #fff !important;
+}
+
+.rdp-range_middle .rdp-day_button {
+  background-color: var(--rdp-background-color) !important;
+  color: var(--rdp-accent-color) !important;
+}
+
+/* FINAL OVERRIDES: Force red for calendar range buttons */
+.rdp-range_start .rdp-day_button,
+.rdp-range_end .rdp-day_button {
+  background-color: #E53E3E !important;
+  color: #fff !important;
+  border-color: #E53E3E !important;
+}
+.rdp-range_middle .rdp-day_button {
+  background-color: #fee2e2 !important;
+  color: #E53E3E !important;
+  border-color: #E53E3E !important;
 } 

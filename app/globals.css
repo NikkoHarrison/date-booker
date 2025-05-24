@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Base styles */
 body {
   font-family: Arial, Helvetica, sans-serif;
 }
@@ -20,8 +21,8 @@ body {
     --card-foreground: 0 0% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
+    --primary: 0 100% 45%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 0 0% 96.1%;
     --secondary-foreground: 0 0% 9%;
     --muted: 0 0% 96.1%;
@@ -32,12 +33,7 @@ body {
     --destructive-foreground: 0 0% 98%;
     --border: 0 0% 89.8%;
     --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    --ring: 0 100% 45%;
     --radius: 0.5rem;
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -48,6 +44,7 @@ body {
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
+  
   .dark {
     --background: 0 0% 3.9%;
     --foreground: 0 0% 98%;
@@ -93,7 +90,226 @@ body {
   }
 }
 
-/* Add this to your globals.css file to hide the dialog close button */
+/* Calendar styles */
+.rdp {
+  --rdp-cell-size: 40px;
+  --rdp-accent-color: #e3000b;
+  --rdp-background-color: #fee2e2;
+  --rdp-accent-color-dark: #e3000b;
+  --rdp-background-color-dark: #fee2e2;
+  --rdp-outline: 2px solid #e3000b;
+  --rdp-outline-selected: 2px solid #e3000b;
+  margin: 1em;
+}
+
+.rdp-months {
+  display: flex;
+}
+
+.rdp-month {
+  background-color: white;
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.rdp-day_selected,
+.rdp-day_selected:focus-visible,
+.rdp-day_selected:hover {
+  background-color: #E53E3E !important;
+  color: #fff !important;
+}
+
+.rdp-day_range_middle {
+  background-color: rgba(229, 62, 62, 0.10) !important;
+  color: #E53E3E !important;
+}
+
+.rdp-day_range_end,
+.rdp-day_range_start {
+  background-color: #E53E3E !important;
+  color: #fff !important;
+}
+
+.rdp-button:hover:not([disabled]):not(.rdp-day_selected) {
+  background-color: #fee2e2 !important;
+}
+
+.rdp-nav_button,
+.rdp-nav_button:focus,
+.rdp-nav_button:focus-visible,
+.rdp-nav_button:hover {
+  color: #E53E3E !important;
+  border-color: #E53E3E !important;
+  background-color: transparent !important;
+}
+
+.rdp-button,
+.rdp-nav_button,
+.rdp-caption_label {
+  color: #E53E3E !important;
+}
+
+.rdp .bg-blue,
+.rdp .text-blue {
+  background-color: #E53E3E !important;
+  color: #E53E3E !important;
+}
+
+.rdp-nav_button svg {
+  stroke: #E53E3E !important;
+  fill: #E53E3E !important;
+}
+
+/* Dialog styles */
 .dialog-no-close [data-radix-collection-item] {
   display: none !important;
+}
+
+/* ICA Date Range Picker styles */
+.ica-date-picker-popover .bg-\[\#E53E3E\] {
+  background-color: #E53E3E !important;
+}
+
+.ica-date-picker-popover .text-white {
+  color: #fff !important;
+}
+
+.ica-date-picker-popover .rounded-xl {
+  border-radius: 1rem !important;
+}
+
+.ica-date-picker-popover .rounded-lg {
+  border-radius: 0.5rem !important;
+}
+
+.ica-date-picker-popover .rounded-md {
+  border-radius: 0.375rem !important;
+}
+
+.ica-date-picker-popover .border-0 {
+  border-width: 0 !important;
+}
+
+.ica-date-picker-popover .shadow-lg {
+  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1) !important;
+}
+
+.ica-date-picker-popover .font-semibold {
+  font-weight: 600 !important;
+}
+
+.ica-date-picker-popover .font-medium {
+  font-weight: 500 !important;
+}
+
+.ica-date-picker-popover .text-lg {
+  font-size: 1.125rem !important;
+}
+
+.ica-date-picker-popover .text-sm {
+  font-size: 0.875rem !important;
+}
+
+.ica-date-picker-popover .opacity-90 {
+  opacity: 0.9 !important;
+}
+
+.ica-date-picker-popover .p-4 {
+  padding: 1rem !important;
+}
+
+.ica-date-picker-popover .pt-4 {
+  padding-top: 1rem !important;
+}
+
+.ica-date-picker-popover .mt-1 {
+  margin-top: 0.25rem !important;
+}
+
+.ica-date-picker-popover .mt-4 {
+  margin-top: 1rem !important;
+}
+
+.ica-date-picker-popover .border-t {
+  border-top: 1px solid #e5e7eb !important;
+}
+
+.ica-date-picker-popover .w-full {
+  width: 100% !important;
+}
+
+.ica-date-picker-popover .h-12 {
+  height: 3rem !important;
+}
+
+.ica-date-picker-popover .h-6 {
+  height: 1.5rem !important;
+}
+
+.ica-date-picker-popover .w-6 {
+  width: 1.5rem !important;
+}
+
+.ica-date-picker-popover .ml-2 {
+  margin-left: 0.5rem !important;
+}
+
+.ica-date-picker-popover .bg-\[\#E53E3E\]\/10 {
+  background-color: rgba(229, 62, 62, 0.10) !important;
+}
+
+.ica-date-picker-popover .aria-selected\:bg-\[\#E53E3E\]\/15[aria-selected="true"] {
+  background-color: rgba(229, 62, 62, 0.15) !important;
+}
+
+.ica-date-picker-popover .aria-selected\:text-\[\#E53E3E\][aria-selected="true"] {
+  color: #E53E3E !important;
+}
+
+.ica-date-picker-popover .hover\:bg-gray-100:hover {
+  background-color: #f3f4f6 !important;
+}
+
+.ica-date-picker-popover .hover\:text-gray-900:hover {
+  color: #111827 !important;
+}
+
+.ica-date-picker-popover .focus\:bg-\[\#E53E3E\]:focus {
+  background-color: #E53E3E !important;
+}
+
+.ica-date-picker-popover .focus\:text-white:focus {
+  color: #fff !important;
+}
+
+.ica-date-picker-popover .bg-gray-100 {
+  background-color: #f3f4f6 !important;
+}
+
+.ica-date-picker-popover .text-gray-900 {
+  color: #111827 !important;
+}
+
+.ica-date-picker-popover .text-gray-400 {
+  color: #9ca3af !important;
+}
+
+.ica-date-picker-popover .text-gray-500 {
+  color: #6b7280 !important;
+}
+
+.ica-date-picker-popover .border-gray-200 {
+  border-color: #e5e7eb !important;
+}
+
+.ica-date-picker-popover .hover\:border-\[\#E53E3E\]:hover {
+  border-color: #E53E3E !important;
+}
+
+.ica-date-picker-popover .focus\:border-\[\#E53E3E\]:focus {
+  border-color: #E53E3E !important;
+}
+
+.ica-date-picker-popover .focus\:ring-\[\#E53E3E\]\/20:focus {
+  box-shadow: 0 0 0 2px rgba(229,62,62,0.2) !important;
 }

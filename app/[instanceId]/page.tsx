@@ -762,7 +762,7 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
   const formatWeekdayMobile = (date: Date) => date.toLocaleDateString("sv-SE", { weekday: "short" }).substring(0, 2)
   const getInitials = (name: string) => name?.charAt(0)?.toUpperCase() || ''
   const getAvatarColor = (name: string = '') => {
-    const colors = ["bg-red-100 text-red-800", "bg-blue-100 text-blue-800", "bg-green-100 text-green-800", "bg-yellow-100 text-yellow-800", "bg-purple-100 text-purple-800"]
+    const colors = ["bg-red-100 text-red-800", "bg-red-100 text-red-800", "bg-green-100 text-green-800", "bg-yellow-100 text-yellow-800", "bg-purple-100 text-purple-800"]
     const index = (name?.length || 0) % colors.length
     return colors[index]
   }
@@ -1201,7 +1201,7 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
                   <div key={`group-${groupIndex}`} className="p-4 md:p-5 bg-white rounded-lg border border-gray-100">
                     <div className="flex items-center gap-2 mb-2">
                       {groupIndex === 0 ? (<span className="text-sm font-medium bg-green-100 text-green-800 px-2 py-0.5 rounded-full">Best option</span>) 
-                      : groupIndex === 1 ? (<span className="text-sm font-medium bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">Second best</span>)
+                      : groupIndex === 1 ? (<span className="text-sm font-medium bg-red-100 text-red-800 px-2 py-0.5 rounded-full">Second best</span>)
                       : (<span className="text-sm font-medium bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full">Third best</span>)}
                     </div>
                     <div className="space-y-2">
