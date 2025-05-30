@@ -69,7 +69,7 @@ function UserSelectionDialog({ isOpen, onClose, onUserSelect, users, instancePas
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Welcome to the Date Picker!</DialogTitle>
+          <DialogTitle>Welcome to the Date Booker!</DialogTitle>
           <DialogDescription>
             To get started, select your name from the list below and enter the password to mark your availability.
           </DialogDescription>
@@ -418,24 +418,32 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
     }))
 
     try {
-      const { data: existingRecord, error: checkError } = await supabase
+      // First check if record exists
+      const { data: existingRecords, error: checkError } = await supabase
         .from("availability")
         .select("id")
         .eq("user_id", userId)
         .eq("date", dateKey) 
         .eq("instance_id", currentInstance?.id)
-        .single()
+        .limit(1)
 
-      if (checkError && checkError.code !== "PGRST116") {
+      if (checkError) {
         throw checkError
       }
+
+      const existingRecord = existingRecords?.[0]
 
       if (existingRecord) {
         const { error: updateError } = await supabase
           .from("availability")
-          .update({ is_available: newValue, updated_at: new Date().toISOString() })
+          .update({ 
+            is_available: newValue, 
+            updated_at: new Date().toISOString(),
+            user_id: userId,
+            date: dateKey,
+            instance_id: currentInstance?.id
+          })
           .eq("id", existingRecord.id)
-          .select()
         if (updateError) throw updateError
       } else {
         const { error: insertError } = await supabase
@@ -445,9 +453,9 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
             date: dateKey, 
             is_available: newValue, 
             instance_id: currentInstance?.id,
-            updated_at: new Date().toISOString(), 
+            updated_at: new Date().toISOString(),
+            created_at: new Date().toISOString()
           })
-          .select()
         if (insertError) throw insertError
       }
 
@@ -494,24 +502,32 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
     }))
 
     try {
-      const { data: existingRecord, error: checkError } = await supabase
+      // First check if record exists
+      const { data: existingRecords, error: checkError } = await supabase
         .from("favorites")
         .select("id")
         .eq("user_id", userId)
         .eq("date", dateKey)
         .eq("instance_id", currentInstance?.id)
-        .single()
+        .limit(1)
 
-      if (checkError && checkError.code !== "PGRST116") {
+      if (checkError) {
         throw checkError
       }
+
+      const existingRecord = existingRecords?.[0]
 
       if (existingRecord) {
         const { error: updateError } = await supabase
           .from("favorites")
-          .update({ is_favorite: newValue, updated_at: new Date().toISOString() })
+          .update({ 
+            is_favorite: Boolean(newValue), 
+            updated_at: new Date().toISOString(),
+            user_id: userId,
+            date: dateKey,
+            instance_id: currentInstance?.id
+          })
           .eq("id", existingRecord.id)
-          .select()
         if (updateError) throw updateError
       } else {
         const { error: insertError } = await supabase
@@ -519,11 +535,11 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
           .insert({
             user_id: userId, 
             date: dateKey,
-            is_favorite: newValue, 
+            is_favorite: Boolean(newValue), 
             instance_id: currentInstance?.id, 
             updated_at: new Date().toISOString(),
+            created_at: new Date().toISOString()
           })
-          .select()
         if (insertError) throw insertError
       }
       
@@ -620,14 +636,21 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
   const updateUserResponse = async (userId: string, hasResponded: boolean, cantAttend: boolean) => {
     try {
       setResponses((prev) => ({ ...prev, [userId]: { hasResponded, cantAttend } }))
-      await supabase.from("responses").upsert({ 
+      const { error } = await supabase
+        .from("responses")
+        .upsert({ 
           user_id: userId,
           has_responded: hasResponded,
           cant_attend: cantAttend,
-        instance_id: currentInstance?.id, 
-        updated_at: new Date().toISOString() 
-      }, { onConflict: 'user_id,instance_id' })
+          instance_id: currentInstance?.id, 
+          updated_at: new Date().toISOString()
+        }, { 
+          onConflict: 'user_id,instance_id',
+          ignoreDuplicates: false
+        })
+      if (error) throw error
     } catch (error) {
+      console.error('Error updating response:', error)
       toast({ title: "Error", description: "Failed to update response status.", variant: "destructive" })
     }
   }
@@ -679,8 +702,8 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
 
   const getRespondedCount = () => users.filter(user => responses[user.id]?.hasResponded).length
   const getCantAttendUsers = () => users.filter(user => responses[user.id]?.cantAttend)
-  const formatDateMobile = (date: Date) => date.toLocaleDateString("sv-SE", { day: "numeric", month: "numeric" })
-  const formatWeekdayMobile = (date: Date) => date.toLocaleDateString("sv-SE", { weekday: "short" }).substring(0, 2)
+  const formatDateMobile = (date: Date) => date.toLocaleDateString("en-GB", { day: "numeric", month: "numeric" })
+  const formatWeekdayMobile = (date: Date) => date.toLocaleDateString("en-GB", { weekday: "short" }).substring(0, 2)
   const getInitials = (name: string) => name?.charAt(0)?.toUpperCase() || ''
   const getAvatarColor = (name: string = '') => {
     const colors = ["bg-red-100 text-red-800", "bg-red-100 text-red-800", "bg-green-100 text-green-800", "bg-yellow-100 text-yellow-800", "bg-purple-100 text-purple-800"]
@@ -764,7 +787,7 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
     }
   }
 
-  const formatMessageTime = (date: Date) => date.toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" })
+  const formatMessageTime = (date: Date) => date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }) }, [messages])
 
@@ -833,15 +856,15 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
             <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Share Date Picker</DialogTitle>
+                  <DialogTitle>Share Date Booker</DialogTitle>
                   <DialogDescription>
-                    Share this message with your participants to let them know about the date picker.
+                    Share this message with your participants to let them know about the date booker.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div className="p-4 bg-gray-50 rounded-lg">
                     <p className="text-sm text-gray-600">
-                      Hey! I've created a date picker for us to find the best time to meet. You can find it here:
+                      Hey! I've created a date booker for us to find the best time to meet. You can find it here:
                       <br /><br />
                       {window.location.href}
                       <br /><br />
@@ -851,7 +874,7 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
                   <Button
                     className="w-full"
                     onClick={() => {
-                      const message = `Hey! I've created a date picker for us to find the best time to meet. You can find it here:\n\n${window.location.href}\n\nPassword: ${currentInstance?.password}`;
+                      const message = `Hey! I've created a date booker for us to find the best time to meet. You can find it here:\n\n${window.location.href}\n\nPassword: ${currentInstance?.password}`;
                       copyToClipboard(message);
                     }}
                   >
@@ -864,7 +887,7 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
         )}
         <div className={`container mx-auto py-6 px-4 ${showUserDialog ? 'invisible' : ''}`}>
           <div className="flex justify-between items-center mb-4">
-            <h1 className="text-2xl md:text-3xl font-bold">{currentInstance?.name || 'Date Picker'}</h1>
+            <h1 className="text-2xl md:text-3xl font-bold">{currentInstance?.name || 'Date Booker'}</h1>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <Button
@@ -1025,8 +1048,8 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
                             {dateRange.map((date) => (
                               <th key={date.toISOString()} className="text-center p-2 font-medium text-gray-500 border-b">
                                 <div className="text-center">
-                                  <div className="text-xs font-medium text-gray-500">{date.toLocaleDateString("sv-SE", { weekday: "short" })}</div>
-                                  <div className="text-sm">{date.toLocaleDateString("sv-SE", { day: "numeric", month: "numeric" })}</div>
+                                  <div className="text-xs font-medium text-gray-500">{date.toLocaleDateString("en-GB", { weekday: "short" })}</div>
+                                  <div className="text-sm">{date.toLocaleDateString("en-GB", { day: "numeric", month: "numeric" })}</div>
                                 </div>
                               </th>
                             ))}
@@ -1129,7 +1152,7 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
                       {group.days.map(({ date, availableCount, favoredCount, respondedCount }) => (
                         <div key={date.toISOString()} className="flex flex-col md:flex-row md:items-center md:justify-between bg-white p-3 rounded-md shadow-sm border border-gray-100">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium">{date.toLocaleDateString("sv-SE", { weekday: isMobile ? "short" : "long", day: "numeric", month: isMobile ? "numeric" : "long" })}</span>
+                            <span className="font-medium">{date.toLocaleDateString("en-GB", { weekday: isMobile ? "short" : "long", day: "numeric", month: isMobile ? "numeric" : "long" })}</span>
                             <div className="flex items-center gap-1 bg-red-50 text-red-500 px-2 py-0.5 rounded-full text-xs"><Star className="h-3 w-3 fill-red-500 text-red-500" /><span>{favoredCount}</span></div>
                           </div>
                           <div className="flex items-center gap-1 mt-1 md:mt-0">

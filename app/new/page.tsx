@@ -117,7 +117,7 @@ export default function NewInstance() {
     try {
       // Validate form data
       if (!formData.name.trim()) {
-        throw new Error("Please enter a name for the date picker")
+        throw new Error("Please enter a name for the date booker")
       }
       if (!formData.password.trim()) {
         throw new Error("Please enter a password")
@@ -170,13 +170,13 @@ export default function NewInstance() {
 
   return (
     <div className="container mx-auto max-w-2xl p-6">
-      <h1 className="text-3xl font-bold mb-6">Create New Date Picker</h1>
+      <h1 className="text-3xl font-bold mb-6">Create New Date Booker</h1>
       <form onSubmit={handleSubmit} className="space-y-6" noValidate>
         <div className="space-y-2">
           <Label htmlFor="name">Name</Label>
           <Input
             id="name"
-            placeholder="Enter a name for your date picker"
+            placeholder="Enter a name for your date booker"
             value={formData.name}
             onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
             disabled={isLoading}
@@ -299,12 +299,12 @@ export default function NewInstance() {
           className="w-full bg-green-500 hover:bg-green-600 text-white border-green-500 hover:border-green-600" 
           disabled={isLoading || formData.users.length < 2}
         >
-          {isLoading ? "Creating..." : "Create Date Picker"}
+          {isLoading ? "Creating..." : "Create Date Booker"}
         </Button>
 
         {formData.users.length < 2 && (
           <p className="text-sm text-gray-500 text-center">
-            Please add at least 2 participants to create a date picker
+            Please add at least 2 participants to create a date booker
           </p>
         )}
 
@@ -316,7 +316,7 @@ export default function NewInstance() {
               formData.name ? "text-black" : "text-gray-400"
             )}>
               {formData.name ? (
-                `Hey! I've created a date picker for us to find the best time to meet.
+                `Hey! I've created a date booker for us to find the best time to meet.
 
 You can access it here:
 https://date-booker.vercel.app/${generateSlug(formData.name)}

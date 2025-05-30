@@ -7,8 +7,8 @@ import { Version } from '@/components/version'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Date Picker',
-  description: 'A simple date picker application',
+  title: 'Date Booker',
+  description: 'A simple date booker application',
 }
 
 export default function RootLayout({
