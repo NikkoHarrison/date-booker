@@ -92,12 +92,21 @@ function UserSelectionDialog({ isOpen, onClose, onUserSelect, users, instancePas
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
+            <input
+              type="text"
+              name="username"
+              autoComplete="username"
+              style={{ display: 'none' }}
+              aria-hidden="true"
+            />
             <Input
               id="password"
               type="password"
+              name="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter the instance password"
+              autoComplete="new-password"
             />
           </div>
           {error && <p className="text-sm text-red-500">{error}</p>}
@@ -149,37 +158,33 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
   }, [currentInstance?.start_date, currentInstance?.end_date])
 
   const loadData = async () => {
-    console.log("[loadData] Called with instanceId:", instanceId)
     setIsLoading(true)
     setPageError(null)
     let usersData: User[] | null = null
 
     try {
-      console.log("[loadData] Fetching instance details...")
-      // First try to fetch by UUID
+      // Try to fetch by slug first since instanceId is the name/slug
       let { data: instance, error: instanceError } = await supabase
         .from("instances")
         .select("*")
-        .eq("id", instanceId)
+        .eq("slug", instanceId)
         .single()
 
-      // If not found by UUID, try to fetch by slug
+      // If not found by slug, try to fetch by id as fallback
       if (instanceError) {
-        console.log("[loadData] Not found by UUID, trying slug...")
-        const { data: slugInstance, error: slugError } = await supabase
+        const { data: idInstance, error: idError } = await supabase
           .from("instances")
           .select("*")
-          .eq("slug", instanceId)
+          .eq("id", instanceId)
           .single()
 
-        if (slugError) {
-          console.error("[loadData] Supabase error fetching instance:", slugError)
+        if (idError) {
           // If instance not found, redirect to new page
           router.push('/new')
           return
         }
 
-        instance = slugInstance
+        instance = idInstance
       }
 
       if (!instance) {
@@ -188,7 +193,6 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
         return
       }
 
-      console.log("[loadData] Instance details:", instance)
       setCurrentInstance(instance as Instance)
       setInstancePassword(instance.password)
 
@@ -196,7 +200,6 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
       const { data: { user } } = await supabase.auth.getUser()
       setIsCreator(user?.id === instance.created_by)
 
-      console.log("[loadData] Fetching users for instance...")
       // Load users for this instance
       const { data: fetchedUsers, error: usersError } = await supabase
         .from("users")
@@ -204,12 +207,10 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
         .eq("instance_id", instance.id)
 
       if (usersError) {
-        console.error("[loadData] Supabase error fetching users:", usersError)
         throw usersError
       }
 
       usersData = fetchedUsers as User[]
-      console.log("[loadData] Fetched usersData:", usersData)
       setUsers(usersData)
 
       const newUserMap = new Map<string, string>()
@@ -217,7 +218,6 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
         newUserMap.set(user.id, user.name)
       })
       setUserMap(newUserMap)
-      console.log("[loadData] User map created:", newUserMap)
 
       // Initialize availability, favored days, and responses state
       const newAvailability: Record<string, Record<string, boolean>> = {}
@@ -233,7 +233,6 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
           currentDates.push(new Date(date))
         }
       }
-      console.log("[loadData] Calculated currentDates directly:", currentDates)
 
       usersData.forEach((user: User) => {
         newAvailability[user.id] = currentDates.reduce(
@@ -256,12 +255,10 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
       setAvailability(newAvailability)
       setFavoredDays(newFavoredDays)
       setResponses(newResponses)
-      console.log("[loadData] Initialized availability, favoredDays, responses.")
 
       // Load availability data for users of this instance
       const userIds = usersData.map((user) => user.id)
       if (userIds.length > 0) {
-        console.log(`[loadData] Fetching availability, favorites, responses, messages for userIds: ${JSON.stringify(userIds)} within instanceId: ${instanceId}`)
         const { data: availabilityData, error: availabilityError } = await supabase
           .from("availability")
           .select("*")
@@ -269,18 +266,14 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
           .eq("instance_id", instance.id)
 
         if (availabilityError) {
-          console.error("[loadData] Supabase error fetching availability:", availabilityError)
           throw availabilityError
         }
-        console.log("[loadData] Fetched availabilityData:", availabilityData)
+
         availabilityData.forEach((record: AvailabilityRecord) => {
           const dateKeyForRecord = new Date(record.date).toISOString()
-          console.log(`[loadData] Processing availability record: user_id=${record.user_id}, db_date=${record.date}, as_iso_key=${dateKeyForRecord}, is_available=${record.is_available}`)
           if (newAvailability[record.user_id]) {
             if (newAvailability[record.user_id].hasOwnProperty(dateKeyForRecord)) {
               newAvailability[record.user_id][dateKeyForRecord] = record.is_available
-            } else {
-              console.warn(`[loadData] Date key ${dateKeyForRecord} (from db_date ${record.date}) not found in pre-initialized newAvailability for user ${record.user_id}. This might indicate a date mismatch if dates are not aligning to UTC midnight in keys.`)
             }
           }
         })
@@ -293,26 +286,20 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
           .eq("instance_id", instance.id)
 
         if (favoritesError) {
-          console.error("[loadData] Supabase error fetching favorites:", favoritesError)
           throw favoritesError
         }
-        console.log("[loadData] Fetched favoritesData:", favoritesData)
+
         favoritesData.forEach((record: FavoriteRecord) => {
           const dateKeyForRecord = new Date(record.date).toISOString()
-          console.log(`[loadData] Processing favorite record: user_id=${record.user_id}, db_date=${record.date}, as_iso_key=${dateKeyForRecord}, is_favorite=${record.is_favorite}`)
           if (newFavoredDays[record.user_id]) {
             if (newFavoredDays[record.user_id].hasOwnProperty(dateKeyForRecord)) {
               newFavoredDays[record.user_id][dateKeyForRecord] = record.is_favorite
-            } else {
-              console.warn(`[loadData] Date key ${dateKeyForRecord} (from db_date ${record.date}) not found in pre-initialized newFavoredDays for user ${record.user_id}.`)
             }
           } else {
-            console.warn(`[loadData] User ID ${record.user_id} from favoritesData not found in pre-initialized newFavoredDays. Initializing now.`)
             newFavoredDays[record.user_id] = { [dateKeyForRecord]: record.is_favorite }
           }
         })
         setFavoredDays({ ...newFavoredDays })
-        console.log("[loadData] FavoredDays state updated with fetched data:", newFavoredDays)
 
         const { data: responsesData, error: responsesError } = await supabase
           .from("responses")
@@ -321,10 +308,9 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
           .eq("instance_id", instance.id)
 
         if (responsesError) {
-          console.error("[loadData] Supabase error fetching responses:", responsesError)
           throw responsesError
         }
-        console.log("[loadData] Fetched responsesData:", responsesData)
+
         responsesData.forEach((record: ResponseRecord) => {
           if (newResponses[record.user_id]) {
             newResponses[record.user_id] = {
@@ -343,10 +329,8 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
           .order("created_at", { ascending: true })
 
         if (messagesError) {
-          console.error("[loadData] Supabase error fetching messages:", messagesError)
           throw messagesError
         }
-        console.log("[loadData] Fetched messagesData:", messagesData)
 
         if (messagesData) {
           const chatMessages: ChatMessage[] = messagesData.map((record: any) => ({
@@ -357,28 +341,18 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
             created_at: record.created_at ? new Date(record.created_at) : new Date(),
           }))
           setMessages(chatMessages)
-          console.log("[loadData] Processed chatMessages:", chatMessages)
         } else {
           setMessages([])
-          console.log("[loadData] No messages found or messagesData is null.")
         }
-      } else {
-        console.log("[loadData] No users found for this instance, skipping related data fetch.")
       }
     } catch (error: any) {
-      console.error("[loadData] Catch block error:", error)
       // If there's an error, redirect to new page
       router.push('/new')
       return
     } finally {
       setIsLoading(false)
-      // Use usersData from the outer scope for the most up-to-date length
-      console.log("[loadData] Finally block. isLoading: false. selectedUserId:", selectedUser, "fetched usersData.length:", usersData?.length ?? 0, "pageError:", pageError)
       if (!selectedUser && usersData && usersData.length > 0 && !pageError) {
-        console.log("[loadData] Showing user dialog because users were fetched and no user is selected.")
         setShowUserDialog(true)
-      } else {
-        console.log("[loadData] Not showing user dialog. Conditions: !selectedUserId:", !selectedUser, "fetched usersData.length > 0:", (usersData?.length ?? 0) > 0, "!pageError:", !pageError)
       }
     }
   }
@@ -435,26 +409,15 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
   const toggleAvailability = async (userId: string, dateKey: string) => {
     if (userId !== selectedUser?.id) return
 
-    try {
-      const authUserResponse = await supabase.auth.getUser();
-      console.log("[toggleAvailability] Current auth user:", authUserResponse?.data?.user);
-      console.log("[toggleAvailability] Attempting to modify for userId (selectedUserId):", userId, "for dateKey:", dateKey);
-      console.log("[toggleAvailability] Using instanceId:", currentInstance?.id);
-    } catch (e) {
-      console.error("[toggleAvailability] Error fetching auth user:", e);
-    }
-
     const newValue = !availability[userId]?.[dateKey]
-    console.log(`[toggleAvailability] User ${userId}, Date ${dateKey}, Current Value: ${availability[userId]?.[dateKey]}, New Value: ${newValue}`);
 
-    // Optimistic update (already there)
+    // Optimistic update
     setAvailability((prev) => ({
       ...prev,
       [userId]: { ...(prev[userId] || {}), [dateKey]: newValue },
     }))
 
     try {
-      console.log("[toggleAvailability] Checking for existing record...");
       const { data: existingRecord, error: checkError } = await supabase
         .from("availability")
         .select("id")
@@ -463,56 +426,50 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
         .eq("instance_id", currentInstance?.id)
         .single()
 
-      console.log("[toggleAvailability] Existing record check result:", { existingRecord, checkError });
-
-      if (checkError && checkError.code !== "PGRST116") { // PGRST116: 'JSON object requested, multiple (or no) rows returned'
-        console.error("[toggleAvailability] Error checking for existing record (and not PGRST116):", checkError);
+      if (checkError && checkError.code !== "PGRST116") {
         throw checkError
       }
 
       if (existingRecord) {
-        console.log(`[toggleAvailability] Updating existing record ID: ${existingRecord.id} to is_available: ${newValue}`);
-        const { data: updateData, error: updateError } = await supabase
-          .from("availability").update({ is_available: newValue, updated_at: new Date().toISOString() }).eq("id", existingRecord.id).select();
-        console.log("[toggleAvailability] Update result:", { updateData, updateError });
+        const { error: updateError } = await supabase
+          .from("availability")
+          .update({ is_available: newValue, updated_at: new Date().toISOString() })
+          .eq("id", existingRecord.id)
+          .select()
         if (updateError) throw updateError
       } else {
-        console.log(`[toggleAvailability] Inserting new record: user_id: ${userId}, date: ${dateKey}, is_available: ${newValue}, instance_id: ${currentInstance?.id}`);
-        const { data: insertData, error: insertError } = await supabase.from("availability").insert({
-          user_id: userId, 
-          date: dateKey, 
-          is_available: newValue, 
-          instance_id: currentInstance?.id,
-          updated_at: new Date().toISOString(), 
-        }).select();
-        console.log("[toggleAvailability] Insert result:", { insertData, insertError });
+        const { error: insertError } = await supabase
+          .from("availability")
+          .insert({
+            user_id: userId, 
+            date: dateKey, 
+            is_available: newValue, 
+            instance_id: currentInstance?.id,
+            updated_at: new Date().toISOString(), 
+          })
+          .select()
         if (insertError) throw insertError
       }
 
-      // If unchecking availability, also uncheck favored (already there)
+      // If unchecking availability, also uncheck favored
       if (!newValue && favoredDays[userId]?.[dateKey]) {
-        console.log("[toggleAvailability] Availability unchecked, also unchecking favored for this date.");
-        // Not awaiting this separately, assuming toggleFavored handles its own errors/state.
         toggleFavored(userId, dateKey) 
       }
       
-      // Update user's response status (already there)
+      // Update user's response status
       let hasAnyAvailableDates = false
-      if (!newValue) { // Check if any other date is still available for this user
+      if (!newValue) {
         for (const date of dateRange) {
           const key = date.toISOString()
-          if (key === dateKey) continue // Don't count the one we just changed
+          if (key === dateKey) continue
           if (availability[userId]?.[key]) { hasAnyAvailableDates = true; break }
         }
-      } else { // If newValue is true, then they have at least this one available date
-        hasAnyAvailableDates = true;
+      } else {
+        hasAnyAvailableDates = true
       }
-      console.log(`[toggleAvailability] Updating user response. Has available dates: ${hasAnyAvailableDates}`);
       await updateUserResponse(userId, newValue || hasAnyAvailableDates, responses[userId]?.cantAttend || false)
-      console.log("[toggleAvailability] Successfully updated/inserted availability and user response.");
 
     } catch (error) {
-      console.error("[toggleAvailability] Error in Supabase operation or subsequent logic:", error)
       // Revert optimistic update
       setAvailability((prev) => ({
         ...prev, [userId]: { ...(prev[userId] || {}), [dateKey]: !newValue },
@@ -523,176 +480,142 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
 
   const toggleFavored = async (userId: string, dateKey: string) => {
     if (userId !== selectedUser?.id || !availability[userId]?.[dateKey]) {
-      console.warn(`[toggleFavored] Aborted: User ${userId} (selected: ${selectedUser?.id}) or date ${dateKey} not available.`);
-      // Maybe provide feedback to user if they somehow click a disabled star
       if (userId === selectedUser?.id && !availability[userId]?.[dateKey]) {
-        toast({ title: "Info", description: "You must mark this day as available before favoriting.", variant: "default" });
+        toast({ title: "Info", description: "You must mark this day as available before favoriting.", variant: "default" })
       }
-      return;
+      return
     }
 
-    console.log(`[toggleFavored] User ${userId}, Date ${dateKey}, Current favored: ${favoredDays[userId]?.[dateKey]}`);
-    const newValue = !favoredDays[userId]?.[dateKey];
-    console.log(`[toggleFavored] New favored value: ${newValue}`);
+    const newValue = !favoredDays[userId]?.[dateKey]
 
     // Optimistic update
     setFavoredDays((prev) => ({
       ...prev, [userId]: { ...(prev[userId] || {}), [dateKey]: newValue },
-    }));
+    }))
 
     try {
-      console.log("[toggleFavored] Checking for existing favorite record...");
       const { data: existingRecord, error: checkError } = await supabase
         .from("favorites")
         .select("id")
         .eq("user_id", userId)
-        .eq("date", dateKey) // Using ISOString dateKey as the value for 'date' column
+        .eq("date", dateKey)
         .eq("instance_id", currentInstance?.id)
-        .single();
-
-      console.log("[toggleFavored] Existing favorite record check result:", { existingRecord, checkError });
+        .single()
 
       if (checkError && checkError.code !== "PGRST116") {
-        console.error("[toggleFavored] Error checking for existing record (and not PGRST116):", checkError);
-        throw checkError;
+        throw checkError
       }
 
       if (existingRecord) {
-        console.log(`[toggleFavored] Updating existing favorite record ID: ${existingRecord.id} to is_favorite: ${newValue}`);
-        const { data: updateData, error: updateError } = await supabase
+        const { error: updateError } = await supabase
           .from("favorites")
           .update({ is_favorite: newValue, updated_at: new Date().toISOString() })
           .eq("id", existingRecord.id)
-          .select();
-        console.log("[toggleFavored] Update result:", { updateData, updateError });
-        if (updateError) throw updateError;
+          .select()
+        if (updateError) throw updateError
       } else {
-        console.log(`[toggleFavored] Inserting new favorite record: user_id: ${userId}, date: ${dateKey}, is_favorite: ${newValue}, instance_id: ${currentInstance?.id}`);
-        const { data: insertData, error: insertError } = await supabase
+        const { error: insertError } = await supabase
           .from("favorites")
           .insert({
             user_id: userId, 
-            date: dateKey, // This is the ISO string. Your DB 'date' column should handle this or be 'text'. If it's 'date' type, this might be an issue.
+            date: dateKey,
             is_favorite: newValue, 
             instance_id: currentInstance?.id, 
             updated_at: new Date().toISOString(),
           })
-          .select();
-        console.log("[toggleFavored] Insert result:", { insertData, insertError });
-        if (insertError) throw insertError;
+          .select()
+        if (insertError) throw insertError
       }
       
-      // Update user response: if they favorite something, they have responded.
-      // This assumes that if they un-favorite all, they might still be 'responded' if they have available days.
-      // The main response update logic is better handled in toggleAvailability or a dedicated function.
-      // For now, just ensure they are marked as responded if they make a positive favorite action.
       if (newValue && (!responses[userId] || !responses[userId].hasResponded)) {
-        console.log("[toggleFavored] User has favorited a day, ensuring they are marked as responded.");
-        await updateUserResponse(userId, true, responses[userId]?.cantAttend || false);
+        await updateUserResponse(userId, true, responses[userId]?.cantAttend || false)
       }
-      console.log("[toggleFavored] Successfully updated/inserted favorite.");
 
     } catch (error) {
-      console.error("[toggleFavored] Error in Supabase operation:", error);
       // Revert optimistic update
-      setFavoredDays((prev) => ({ ...prev, [userId]: { ...(prev[userId] || {}), [dateKey]: !newValue } }));
-      toast({ title: "Error", description: "Failed to update favorite status. Please try again.", variant: "destructive" });
+      setFavoredDays((prev) => ({ ...prev, [userId]: { ...(prev[userId] || {}), [dateKey]: !newValue } }))
+      toast({ title: "Error", description: "Failed to update favorite status. Please try again.", variant: "destructive" })
     }
   }
 
   const setAllAvailability = async (userId: string, value: boolean) => {
-    if (userId !== selectedUser?.id) {
-      console.warn("[setAllAvailability] Aborted: userId does not match selectedUserId.");
-      return;
-    }
-    console.log(`[setAllAvailability] Called for user ${userId}, value: ${value}, instanceId: ${currentInstance?.id}`);
-    setIsLoading(true);
+    if (userId !== selectedUser?.id) return
+    setIsLoading(true)
 
     // Store previous state for potential revert
-    const prevAvailability = JSON.parse(JSON.stringify(availability));
-    const prevFavoredDays = JSON.parse(JSON.stringify(favoredDays));
-    const prevResponses = JSON.parse(JSON.stringify(responses)); // Assuming responses might change
+    const prevAvailability = JSON.parse(JSON.stringify(availability))
+    const prevFavoredDays = JSON.parse(JSON.stringify(favoredDays))
+    const prevResponses = JSON.parse(JSON.stringify(responses))
 
     // Optimistic UI update
-    const updatedAvailability = { ...availability };
-    if (!updatedAvailability[userId]) updatedAvailability[userId] = {};
-    const updatedFavoredDays = { ...favoredDays };
-    if (!updatedFavoredDays[userId]) updatedFavoredDays[userId] = {};
+    const updatedAvailability = { ...availability }
+    if (!updatedAvailability[userId]) updatedAvailability[userId] = {}
+    const updatedFavoredDays = { ...favoredDays }
+    if (!updatedFavoredDays[userId]) updatedFavoredDays[userId] = {}
 
     dateRange.forEach(date => {
-      const dateKey = date.toISOString();
-      updatedAvailability[userId][dateKey] = value;
-      if (!value) { // If marking all unavailable, also unmark favorites
-        updatedFavoredDays[userId][dateKey] = false;
+      const dateKey = date.toISOString()
+      updatedAvailability[userId][dateKey] = value
+      if (!value) {
+        updatedFavoredDays[userId][dateKey] = false
       }
-    });
-    setAvailability(updatedAvailability);
-    setFavoredDays(updatedFavoredDays);
-    console.log("[setAllAvailability] Optimistic UI updates applied.");
+    })
+    setAvailability(updatedAvailability)
+    setFavoredDays(updatedFavoredDays)
 
     try {
-      if (!value) { // Marking all as UNAVAILABLE
-        console.log(`[setAllAvailability] Deleting all availability and favorites for user ${userId}`);
+      if (!value) {
         const { error: deleteAvailError } = await supabase
           .from("availability")
           .delete()
           .eq("user_id", userId)
-          .eq("instance_id", currentInstance?.id);
-        if (deleteAvailError) throw deleteAvailError;
-        console.log("[setAllAvailability] Availability delete successful.");
+          .eq("instance_id", currentInstance?.id)
+        if (deleteAvailError) throw deleteAvailError
 
         const { error: deleteFavError } = await supabase
           .from("favorites")
           .delete()
           .eq("user_id", userId)
-          .eq("instance_id", currentInstance?.id);
-        if (deleteFavError) throw deleteFavError;
-        console.log("[setAllAvailability] Favorites delete successful.");
+          .eq("instance_id", currentInstance?.id)
+        if (deleteFavError) throw deleteFavError
         
-        await updateUserResponse(userId, false, false); // Reset response state
+        await updateUserResponse(userId, false, false)
 
-      } else { // Marking all as AVAILABLE
-        console.log(`[setAllAvailability] Upserting all availability to TRUE for user ${userId}`);
+      } else {
         const upsertOps = dateRange.map(date => {
-          const dateKey = date.toISOString();
+          const dateKey = date.toISOString()
           return supabase.from("availability").upsert(
             {
               user_id: userId,
-              date: dateKey, // DB `date` column is TEXT for ISO string
+              date: dateKey,
               is_available: true,
               instance_id: currentInstance?.id,
-              // `created_at` is handled by DB default, `updated_at` will be set by DB trigger or here
               updated_at: new Date().toISOString(), 
             },
             { onConflict: 'user_id,date,instance_id' }
-          ).select(); // .select() to confirm and get data back
-        });
+          ).select()
+        })
 
-        const results = await Promise.all(upsertOps);
+        const results = await Promise.all(upsertOps)
         results.forEach(result => {
           if (result.error) {
-            console.error("[setAllAvailability] Error in one of the upsert operations:", result.error);
-            throw result.error; // Throw the first error to be caught by the main catch block
+            throw result.error
           }
-        });
-        console.log("[setAllAvailability] All availability upserts successful.");
-        await updateUserResponse(userId, true, false); // Mark as responded
+        })
+        await updateUserResponse(userId, true, false)
       }
 
-      toast({ title: "Success", description: value ? "All days marked as available" : "All days marked as unavailable" });
+      toast({ title: "Success", description: value ? "All days marked as available" : "All days marked as unavailable" })
     } catch (error: any) {
-      console.error("[setAllAvailability] Error during database operations:", error);
-      toast({ title: "Error", description: `Failed to update all availability: ${error.message}` });
+      toast({ title: "Error", description: `Failed to update all availability: ${error.message}` })
       // Revert optimistic updates
-      console.log("[setAllAvailability] Reverting optimistic UI updates due to error.");
-      setAvailability(prevAvailability);
-      setFavoredDays(prevFavoredDays);
-      setResponses(prevResponses); // Revert responses as well
+      setAvailability(prevAvailability)
+      setFavoredDays(prevFavoredDays)
+      setResponses(prevResponses)
     } finally {
-      setIsLoading(false);
-      console.log("[setAllAvailability] Operation finished.");
+      setIsLoading(false)
     }
-  };
+  }
 
   const updateUserResponse = async (userId: string, hasResponded: boolean, cantAttend: boolean) => {
     try {
@@ -705,7 +628,6 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
         updated_at: new Date().toISOString() 
       }, { onConflict: 'user_id,instance_id' })
     } catch (error) {
-      console.error("Error updating response status:", error)
       toast({ title: "Error", description: "Failed to update response status.", variant: "destructive" })
     }
   }
@@ -731,7 +653,6 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
       await updateUserResponse(userId, true, newValue)
       toast({ title: "Success", description: newValue ? "Marked as unable to attend" : "You can now select dates" })
     } catch (error) {
-      console.error("Error updating cant attend status:", error)
       toast({ title: "Error", description: "Failed to update attendance status.", variant: "destructive" })
     } finally { setIsLoading(false) }
   }
@@ -803,7 +724,7 @@ export default function InstancePage({ params }: { params: Promise<{ instanceId:
         },
       ]).select("*, user:users!inner(name)") // Re-fetch to get actual created_at and user name
 
-  if (error) {
+      if (error) {
         console.error("Error sending message:", error)
         toast({
           title: "Error",

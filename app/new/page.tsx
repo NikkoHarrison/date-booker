@@ -192,6 +192,7 @@ export default function NewInstance() {
             value={formData.password}
             onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
             disabled={isLoading}
+            autoComplete="new-password"
           />
         </div>
 
